@@ -257,6 +257,7 @@
     autoCleanup=data.autoCleanup!==false;
     difficultyEl.value=data.difficulty||'medium';
     history=[]; future=[];
+    document.querySelector('.board-shell').classList.remove('victory-glow');
     render(); startTimer(); setStatus('Resumed saved game.');
   }
 
@@ -346,6 +347,7 @@
     notes=Array.from({length:GRID_SIZE},()=>Array.from({length:GRID_SIZE},()=>new Set()));
     fillNotesAll();
     selected=null; elapsed=0; history=[]; future=[];
+    document.querySelector('.board-shell').classList.remove('victory-glow');
     render(); startTimer(); saveGame();
     setStatus(`New ${difficultyEl.value} Shandoku game loaded.`);
   }
