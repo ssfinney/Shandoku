@@ -160,6 +160,21 @@
     document.getElementById('toggleAutoBottomBtn').classList.toggle('active',autoCleanup);
   }
 
+  function updateDigitPad(){
+    const counts=new Array(10).fill(0);
+    for(let r=0;r<GRID_SIZE;r++)
+      for(let c=0;c<GRID_SIZE;c++)
+        if(grid[r][c]&&!hasConflict(r,c)) counts[grid[r][c]]++;
+    document.querySelectorAll('#digitPad button').forEach(btn=>{
+      const n=Number(btn.textContent);
+      if(n>=1&&n<=9){
+        const done=counts[n]===9;
+        btn.classList.toggle('completed',done);
+        btn.disabled=done;
+      }
+    });
+  }
+
   function updateStatus(){
     if(!selected){ setStatus('Tap a cell, then tap a number. Red means that exact cell conflicts with another value in its row, column, or 3×3 block.'); return; }
     const {r,c}=selected;
@@ -207,7 +222,7 @@
         boardEl.appendChild(cell);
       }
     }
-    updateStats(); updateToggles(); updateStatus();
+    updateStats(); updateToggles(); updateStatus(); updateDigitPad();
   }
 
   function celebrate(){
@@ -215,7 +230,9 @@
       el.classList.add('okflash');
       setTimeout(()=>el.classList.remove('okflash'),450);
     });
+    document.querySelector('.board-shell').classList.add('victory-glow');
     vibrate([50,30,80]);
+    console.log('game_won',{elapsed,difficulty:difficultyEl.value});
   }
 
   // ── Persistence ───────────────────────────────────────────────────────────
@@ -240,6 +257,7 @@
     autoCleanup=data.autoCleanup!==false;
     difficultyEl.value=data.difficulty||'medium';
     history=[]; future=[];
+    document.querySelector('.board-shell').classList.remove('victory-glow');
     render(); startTimer(); setStatus('Resumed saved game.');
   }
 
@@ -329,6 +347,7 @@
     notes=Array.from({length:GRID_SIZE},()=>Array.from({length:GRID_SIZE},()=>new Set()));
     fillNotesAll();
     selected=null; elapsed=0; history=[]; future=[];
+    document.querySelector('.board-shell').classList.remove('victory-glow');
     render(); startTimer(); saveGame();
     setStatus(`New ${difficultyEl.value} Shandoku game loaded.`);
   }
@@ -347,8 +366,14 @@
     grid[r][c]=n;
     notes[r][c].clear();
     autoCleanNotesAround(r,c,n);
-    vibrate(10);
     render(); saveGame();
+    if(hasConflict(r,c)){
+      vibrate([10,50,10]);
+      const cellEl=boardEl.children[r*9+c];
+      if(cellEl){ cellEl.classList.add('error-shake'); setTimeout(()=>cellEl.classList.remove('error-shake'),400); }
+    } else {
+      vibrate(10);
+    }
     if(isSolved()){ setStatus('Solved. Nice work.'); celebrate(); }
   }
 
@@ -522,7 +547,14 @@
 
   const raw=localStorage.getItem(STORAGE_KEY);
   if(raw){
-    try{ applyLoadedData(JSON.parse(raw)); } catch{ newGame(); }
+    try{
+      const saved=JSON.parse(raw);
+      if(confirm('Resume your saved game?')){
+        applyLoadedData(saved);
+      } else {
+        newGame();
+      }
+    } catch{ newGame(); }
   } else {
     newGame();
   }
