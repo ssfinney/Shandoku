@@ -7,7 +7,7 @@
   --fixed:#e2e8f0;
   --user:#dbeafe;
   --userText:#1d4ed8;
-  --notesText:#64748b;
+  --notesText:#94a3b8;
   --grid:#334155;
   --thick:#020617;
   --accent:#2563eb;
@@ -240,4 +240,32 @@ button:active,select:active{transform:scale(.985)}
 
 @media (min-width:480px){
   .toolbar{grid-template-columns:repeat(4,1fr)}
+}
+
+/* ── Error shake ─────────────────────────────────────────────────────────── */
+.error-shake{
+  animation:shake .4s cubic-bezier(.36,.07,.19,.97) both;
+  color:#ff4d4d !important;
+}
+@keyframes shake{
+  10%,90%{transform:translate3d(-1px,0,0)}
+  20%,80%{transform:translate3d(2px,0,0)}
+  30%,50%,70%{transform:translate3d(-4px,0,0)}
+  40%,60%{transform:translate3d(4px,0,0)}
+}
+
+/* ── Victory glow ────────────────────────────────────────────────────────── */
+.victory-glow{
+  animation:glow-pulse 2s infinite alternate;
+  border-color:#00ffcc !important;
+}
+@keyframes glow-pulse{
+  from{box-shadow:0 0 10px #00ffcc,0 0 20px #00ffcc;filter:brightness(1)}
+  to{box-shadow:0 0 20px #00ffcc,0 0 40px #33ffeb;filter:brightness(1.2)}
+}
+
+/* ── Completed digit button ──────────────────────────────────────────────── */
+.digit-pad button.completed{
+  opacity:.3;
+  pointer-events:none;
 }
