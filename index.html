@@ -1,0 +1,1087 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#111827" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icons/icon-192.png" sizes="192x192" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <title>Shandoku – Wife Edition</title>
+  <style>
+    :root{
+      --bg1:#0b1220;
+      --bg2:#111827;
+      --panel:rgba(17,24,39,.98);
+      --panel2:#0f172a;
+      --cell:#f8fafc;
+      --fixed:#e2e8f0;
+      --user:#dbeafe;
+      --userText:#1d4ed8;
+      --notesText:#64748b;
+      --grid:#334155;
+      --thick:#020617;
+      --accent:#2563eb;
+      --accent2:#dbeafe;
+      --related:rgba(37,99,235,.08);
+      --error:#fecaca;
+      --errorText:#991b1b;
+      --good:#dcfce7;
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --button:#1f2937;
+      --buttonText:#fff;
+      --safe-bottom:env(safe-area-inset-bottom, 0px);
+      --shadow:rgba(0,0,0,.24);
+    }
+
+    body.light{
+      --bg1:#eef2ff;
+      --bg2:#f8fafc;
+      --panel:rgba(255,255,255,.98);
+      --panel2:#e8eef7;
+      --cell:#ffffff;
+      --fixed:#e2e8f0;
+      --user:#dbeafe;
+      --userText:#1d4ed8;
+      --notesText:#475569;
+      --grid:#94a3b8;
+      --thick:#334155;
+      --accent:#2563eb;
+      --accent2:#dbeafe;
+      --related:rgba(37,99,235,.07);
+      --error:#fee2e2;
+      --errorText:#991b1b;
+      --good:#dcfce7;
+      --text:#0f172a;
+      --muted:#475569;
+      --button:#e2e8f0;
+      --buttonText:#0f172a;
+      --shadow:rgba(15,23,42,.12);
+    }
+
+    *{box-sizing:border-box}
+    html{height:100%;overflow-x:hidden}
+    body{
+      margin:0;
+      min-height:100%;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+      background:linear-gradient(180deg,var(--bg1),var(--bg2));
+      color:var(--text);
+      padding:8px 8px calc(8px + var(--safe-bottom));
+      -webkit-tap-highlight-color:transparent;
+      overscroll-behavior-y:contain;
+      text-size-adjust:100%;
+      transition:background .2s ease,color .2s ease;
+    }
+
+    .app{
+      width:100%;
+      max-width:600px;
+      margin:0 auto;
+      background:var(--panel);
+      border:1px solid rgba(148,163,184,.18);
+      border-radius:18px;
+      overflow:hidden;
+      box-shadow:0 12px 36px var(--shadow);
+      backdrop-filter:blur(10px);
+    }
+
+    .header{padding:14px 14px 10px}
+    h1{margin:0 0 4px;font-size:1.45rem;line-height:1.12}
+    .sub{margin:0;color:var(--muted);font-size:.93rem;line-height:1.32}
+
+    .legend{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      padding:10px 14px 0;
+      font-size:.82rem;
+      color:var(--muted);
+    }
+    .legend span{display:inline-flex;align-items:center;gap:6px}
+    .swatch{
+      width:14px;height:14px;border-radius:4px;display:inline-block;border:1px solid rgba(0,0,0,.08)
+    }
+
+    .toolbar{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:8px;
+      padding:10px 14px 14px;
+    }
+
+    button,select{
+      appearance:none;
+      border:none;
+      border-radius:14px;
+      padding:14px 10px;
+      background:var(--button);
+      color:var(--buttonText);
+      font:inherit;
+      font-size:16px;
+      min-height:48px;
+      touch-action:manipulation;
+      box-shadow:0 1px 0 rgba(255,255,255,.04) inset;
+    }
+    button:active,select:active{transform:scale(.985)}
+    .primary{background:var(--accent);color:#fff}
+    .toggle.active{background:#065f46;color:#fff}
+
+    .main{padding:0 10px 12px}
+    .board-shell{
+      background:var(--panel2);
+      border-radius:18px;
+      padding:10px;
+      box-shadow:0 4px 12px var(--shadow) inset;
+    }
+    .board{
+      display:grid;
+      grid-template-columns:repeat(9,1fr);
+      width:100%;
+      aspect-ratio:1/1;
+      background:var(--thick);
+      padding:6px;
+      border-radius:12px;
+      user-select:none;
+      touch-action:pan-y;
+    }
+
+    .cell{
+      position:relative;
+      background:var(--cell);
+      color:#0f172a;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-weight:700;
+      font-size:clamp(18px,5.3vw,31px);
+      margin:2px;
+      border-radius:6px;
+      padding:0;
+      user-select:none;
+    }
+    .cell.fixed{background:var(--fixed);color:#111827}
+    .cell.user{background:var(--user);color:var(--userText)}
+    .cell.related{box-shadow:inset 0 0 0 999px var(--related)}
+    .cell.selected{background:var(--accent2);outline:3px solid var(--accent);z-index:2}
+    .cell.error{background:var(--error);color:var(--errorText);outline:2px solid #dc2626}
+    .cell.error.selected{outline:3px solid #dc2626}
+    .cell.okflash{background:var(--good)}
+    .block-right{margin-right:8px}
+    .block-bottom{margin-bottom:8px}
+
+    .notes{
+      position:absolute;
+      inset:2px;
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      grid-template-rows:repeat(3,1fr);
+      font-size:clamp(7px,1.9vw,12px);
+      font-weight:600;
+      color:var(--notesText);
+      pointer-events:none;
+    }
+    .notes span{display:flex;align-items:center;justify-content:center;line-height:1}
+
+    .stats{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:8px;
+      margin-top:10px;
+    }
+    .stat{
+      background:var(--panel2);
+      border-radius:14px;
+      padding:9px 10px;
+      text-align:center;
+    }
+    .stat .label{font-size:.76rem;color:var(--muted)}
+    .stat .value{font-size:1rem;font-weight:700;margin-top:4px}
+
+    .status{
+      margin-top:10px;
+      padding:12px 13px;
+      background:var(--panel2);
+      border-radius:14px;
+      color:var(--text);
+      line-height:1.32;
+      min-height:56px;
+      font-size:.93rem;
+    }
+
+    .controls{
+      position:sticky;
+      bottom:0;
+      margin-top:10px;
+      padding-top:8px;
+      background:linear-gradient(180deg,rgba(0,0,0,0),rgba(0,0,0,.06) 24%,rgba(0,0,0,0) 100%);
+    }
+
+    .digit-pad{
+      display:grid;
+      grid-template-columns:repeat(5,minmax(0,1fr));
+      gap:8px;
+      padding-bottom:8px;
+    }
+    .digit-pad button{
+      min-height:56px;
+      font-size:1.08rem;
+      font-weight:700;
+      padding:0;
+      border-radius:16px;
+    }
+
+    .action-row,.action-row2,.action-row3{
+      display:grid;
+      gap:8px;
+      margin-top:8px;
+    }
+    .action-row{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .action-row2{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .action-row3{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .footer{
+      color:var(--muted);
+      font-size:.84rem;
+      line-height:1.3;
+      padding:6px 2px 2px;
+    }
+
+    @media (min-width:480px){
+      .toolbar{grid-template-columns:repeat(4,1fr)}
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="header">
+      <h1>Shandoku 😂</h1>
+      <p class="sub">Definitive Wife Edition — built for Android Chrome with big tap targets, auto-save, notes, swipe movement, and polished board feedback.</p>
+    </div>
+
+    <div class="legend">
+      <span><i class="swatch" style="background:var(--fixed)"></i> starting numbers</span>
+      <span><i class="swatch" style="background:var(--user)"></i> your numbers</span>
+      <span><i class="swatch" style="background:var(--error)"></i> conflicting cell</span>
+    </div>
+
+    <div class="toolbar">
+      <button class="primary" id="newGame">New Game</button>
+      <select id="difficulty" aria-label="Difficulty">
+        <option value="easy">Easy</option>
+        <option value="medium" selected>Medium</option>
+        <option value="hard">Hard</option>
+      </select>
+      <button id="notesModeBtn" class="toggle">Notes Off</button>
+      <button id="autoNotesBtn" class="toggle active">Auto-clean On</button>
+      <button id="fillNotesBtn">Fill Notes</button>
+      <button id="hintBtn">Hint</button>
+      <button id="checkBtn">Check</button>
+      <button id="solveBtn">Solve</button>
+      <button id="resumeBtn">Resume</button>
+      <button id="themeBtn">Theme: Dark</button>
+      <button id="nextEmptyBtn">Next Empty</button>
+      <button id="clearBtn">Clear</button>
+    </div>
+
+    <div class="main">
+      <div class="board-shell">
+        <div id="board" class="board" aria-label="Shandoku board"></div>
+      </div>
+
+      <div class="stats">
+        <div class="stat"><div class="label">Time</div><div class="value" id="timeStat">00:00</div></div>
+        <div class="stat"><div class="label">Filled</div><div class="value" id="filledStat">0/81</div></div>
+        <div class="stat"><div class="label">Errors</div><div class="value" id="errorStat">0</div></div>
+      </div>
+
+      <div id="status" class="status">Tap a cell, then tap a number. Red means that exact cell conflicts with another value in its row, column, or 3×3 block.</div>
+
+      <div class="controls">
+        <div class="digit-pad" id="digitPad"></div>
+        <div class="action-row">
+          <button id="undoBtn">Undo</button>
+          <button id="redoBtn">Redo</button>
+          <button id="toggleThemeBottomBtn">Theme</button>
+        </div>
+        <div class="action-row2">
+          <button id="toggleNotesBottomBtn">Notes</button>
+          <button id="toggleAutoBottomBtn">Auto-clean</button>
+          <button id="fillNotesBottomBtn">Fill Notes</button>
+        </div>
+        <div class="action-row3">
+          <button id="newGameBottomBtn">New Game</button>
+          <button id="resumeBottomBtn">Resume Saved</button>
+        </div>
+        <div class="footer">
+          Tip: add this page to Home screen in Chrome for an app-like feel. Swipe on the board to move the selected cell.
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const STORAGE_KEY = 'shandoku-wife-edition-save-v1';
+  const THEME_KEY = 'shandoku-wife-edition-theme-v1';
+  const boardEl = document.getElementById('board');
+  const statusEl = document.getElementById('status');
+  const difficultyEl = document.getElementById('difficulty');
+  const timeStat = document.getElementById('timeStat');
+  const filledStat = document.getElementById('filledStat');
+  const errorStat = document.getElementById('errorStat');
+  const notesModeBtn = document.getElementById('notesModeBtn');
+  const autoNotesBtn = document.getElementById('autoNotesBtn');
+  const themeBtn = document.getElementById('themeBtn');
+
+  let selected = null;
+  let notesMode = false;
+  let autoCleanup = true;
+  let elapsed = 0;
+  let timerId = null;
+  let history = [];
+  let future = [];
+  let touchStart = null;
+
+  const puzzle = [
+    [5,3,0,0,7,0,0,0,0],
+    [6,0,0,1,9,5,0,0,0],
+    [0,9,8,0,0,0,0,6,0],
+
+    [8,0,0,0,6,0,0,0,3],
+    [4,0,0,8,0,3,0,0,1],
+    [7,0,0,0,2,0,0,0,6],
+
+    [0,6,0,0,0,0,2,8,0],
+    [0,0,0,4,1,9,0,0,5],
+    [0,0,0,0,8,0,0,7,9]
+  ];
+
+  let grid = puzzle.map(r => r.slice());
+  let notes = Array.from({length: 9}, () => Array.from({length: 9}, () => new Set()));
+
+  function cloneGrid(g){ return g.map(row => row.slice()); }
+  function cloneNotes(src){ return src.map(row => row.map(s => new Set([...s]))); }
+
+  function countFilled(){
+    let filled = 0;
+    for(let r=0;r<9;r++) for(let c=0;c<9;c++) if(grid[r][c] !== 0) filled++;
+    return filled;
+  }
+
+  function hasConflict(r, c){
+    const value = grid[r][c];
+    if(!value) return false;
+
+    for(let i=0;i<9;i++) if(i !== c && grid[r][i] === value) return true;
+    for(let i=0;i<9;i++) if(i !== r && grid[i][c] === value) return true;
+
+    const br = Math.floor(r / 3) * 3;
+    const bc = Math.floor(c / 3) * 3;
+    for(let rr = br; rr < br + 3; rr++){
+      for(let cc = bc; cc < bc + 3; cc++){
+        if((rr !== r || cc !== c) && grid[rr][cc] === value) return true;
+      }
+    }
+    return false;
+  }
+
+  function countErrors(){
+    let errors = 0;
+    for(let r=0;r<9;r++) for(let c=0;c<9;c++) if(hasConflict(r,c)) errors++;
+    return errors;
+  }
+
+  function candidatesFor(r, c){
+    if(grid[r][c] !== 0) return [];
+    const used = new Set();
+    for(let i=0;i<9;i++){
+      if(grid[r][i]) used.add(grid[r][i]);
+      if(grid[i][c]) used.add(grid[i][c]);
+    }
+    const br = Math.floor(r / 3) * 3;
+    const bc = Math.floor(c / 3) * 3;
+    for(let rr = br; rr < br + 3; rr++){
+      for(let cc = bc; cc < bc + 3; cc++){
+        if(grid[rr][cc]) used.add(grid[rr][cc]);
+      }
+    }
+    const out = [];
+    for(let n=1;n<=9;n++) if(!used.has(n)) out.push(n);
+    return out;
+  }
+
+  function fillNotesAll(){
+    for(let r=0;r<9;r++){
+      for(let c=0;c<9;c++){
+        if(grid[r][c] === 0) notes[r][c] = new Set(candidatesFor(r,c));
+        else notes[r][c].clear();
+      }
+    }
+  }
+
+  function autoCleanNotesAround(r, c, value){
+    if(!autoCleanup || !value) return;
+    for(let i=0;i<9;i++){
+      if(i !== c) notes[r][i].delete(value);
+      if(i !== r) notes[i][c].delete(value);
+    }
+    const br = Math.floor(r / 3) * 3;
+    const bc = Math.floor(c / 3) * 3;
+    for(let rr = br; rr < br + 3; rr++){
+      for(let cc = bc; cc < bc + 3; cc++){
+        if(rr !== r || cc !== c) notes[rr][cc].delete(value);
+      }
+    }
+    notes[r][c].clear();
+  }
+
+  function isRelated(r, c){
+    if(!selected) return false;
+    if(selected.r === r && selected.c === c) return false;
+    const sameRow = selected.r === r;
+    const sameCol = selected.c === c;
+    const sameBlock = Math.floor(selected.r / 3) === Math.floor(r / 3) &&
+                      Math.floor(selected.c / 3) === Math.floor(c / 3);
+    return sameRow || sameCol || sameBlock;
+  }
+
+  function formatTime(total){
+    const mm = String(Math.floor(total / 60)).padStart(2, '0');
+    const ss = String(total % 60).padStart(2, '0');
+    return `${mm}:${ss}`;
+  }
+
+  function updateStats(){
+    timeStat.textContent = formatTime(elapsed);
+    filledStat.textContent = `${countFilled()}/81`;
+    errorStat.textContent = String(countErrors());
+  }
+
+  function pushHistory(){
+    history.push({
+      grid: cloneGrid(grid),
+      notes: cloneNotes(notes),
+      selected: selected ? {...selected} : null,
+      elapsed, notesMode, autoCleanup
+    });
+    if(history.length > 200) history.shift();
+    future = [];
+  }
+
+  function restoreSnapshot(snap){
+    grid = cloneGrid(snap.grid);
+    notes = cloneNotes(snap.notes);
+    selected = snap.selected ? {...snap.selected} : null;
+    elapsed = snap.elapsed;
+    notesMode = snap.notesMode;
+    autoCleanup = snap.autoCleanup;
+    render();
+    updateStats();
+    updateToggles();
+    saveGame();
+  }
+
+  function undo(){
+    if(!history.length){
+      setStatus('Nothing to undo.');
+      return;
+    }
+    future.push({
+      grid: cloneGrid(grid),
+      notes: cloneNotes(notes),
+      selected: selected ? {...selected} : null,
+      elapsed, notesMode, autoCleanup
+    });
+    restoreSnapshot(history.pop());
+    setStatus('Undid last move.');
+  }
+
+  function redo(){
+    if(!future.length){
+      setStatus('Nothing to redo.');
+      return;
+    }
+    history.push({
+      grid: cloneGrid(grid),
+      notes: cloneNotes(notes),
+      selected: selected ? {...selected} : null,
+      elapsed, notesMode, autoCleanup
+    });
+    restoreSnapshot(future.pop());
+    setStatus('Redid move.');
+  }
+
+  function setStatus(msg){
+    statusEl.textContent = msg;
+  }
+
+  function startTimer(){
+    if(timerId) clearInterval(timerId);
+    timerId = setInterval(() => {
+      elapsed++;
+      updateStats();
+      saveGame();
+    }, 1000);
+  }
+
+  function celebrate(){
+    document.querySelectorAll('.cell').forEach(el => {
+      el.classList.add('okflash');
+      setTimeout(() => el.classList.remove('okflash'), 450);
+    });
+  }
+
+  function isSolved(){
+    if(countFilled() !== 81) return false;
+    if(countErrors() !== 0) return false;
+    return true;
+  }
+
+  function makeNotesNode(r, c){
+    const box = document.createElement('div');
+    box.className = 'notes';
+    for(let n=1;n<=9;n++){
+      const span = document.createElement('span');
+      span.textContent = notes[r][c].has(n) ? String(n) : '';
+      box.appendChild(span);
+    }
+    return box;
+  }
+
+  function updateToggles(){
+    notesModeBtn.textContent = notesMode ? 'Notes On' : 'Notes Off';
+    notesModeBtn.classList.toggle('active', notesMode);
+    autoNotesBtn.textContent = autoCleanup ? 'Auto-clean On' : 'Auto-clean Off';
+    autoNotesBtn.classList.toggle('active', autoCleanup);
+    document.getElementById('toggleNotesBottomBtn').textContent = notesMode ? 'Notes On' : 'Notes Off';
+    document.getElementById('toggleNotesBottomBtn').classList.toggle('active', notesMode);
+    document.getElementById('toggleAutoBottomBtn').textContent = autoCleanup ? 'Auto-clean On' : 'Auto-clean Off';
+    document.getElementById('toggleAutoBottomBtn').classList.toggle('active', autoCleanup);
+  }
+
+  function updateStatus(){
+    if(!selected){
+      setStatus('Tap a cell, then tap a number. Red means that exact cell conflicts with another value in its row, column, or 3×3 block.');
+      return;
+    }
+    const {r, c} = selected;
+    const isFixed = puzzle[r][c] !== 0;
+    const value = grid[r][c];
+    const noteCount = notes[r][c].size;
+
+    if(isFixed){
+      setStatus(`r${r+1}c${c+1} is a starting number.`);
+      return;
+    }
+    if(notesMode && !value){
+      setStatus(`Notes mode is on. r${r+1}c${c+1} has ${noteCount} note${noteCount === 1 ? '' : 's'}.`);
+      return;
+    }
+    if(!value){
+      setStatus(`r${r+1}c${c+1} is empty.${noteCount ? ` It has ${noteCount} note${noteCount === 1 ? '' : 's'}.` : ''}`);
+      return;
+    }
+    if(hasConflict(r, c)){
+      setStatus(`r${r+1}c${c+1} is red because that exact cell conflicts with another ${value} in its row, column, or 3×3 block.`);
+    } else {
+      setStatus(`r${r+1}c${c+1} contains your ${value}.${autoCleanup ? ' Related notes were auto-cleaned.' : ''}`);
+    }
+  }
+
+  function render(){
+    boardEl.innerHTML = '';
+    for(let r=0;r<9;r++){
+      for(let c=0;c<9;c++){
+        const cell = document.createElement('button');
+        cell.type = 'button';
+        cell.className = 'cell';
+        const isFixed = puzzle[r][c] !== 0;
+        const isUserPlaced = !isFixed && grid[r][c] !== 0;
+
+        if(isFixed) cell.classList.add('fixed');
+        if(isUserPlaced) cell.classList.add('user');
+        if(isRelated(r,c)) cell.classList.add('related');
+        if(selected && selected.r === r && selected.c === c) cell.classList.add('selected');
+        if(hasConflict(r,c)) cell.classList.add('error');
+        if(c === 2 || c === 5) cell.classList.add('block-right');
+        if(r === 2 || r === 5) cell.classList.add('block-bottom');
+
+        cell.setAttribute('aria-label', `Row ${r+1} Column ${c+1}`);
+        if(grid[r][c]) cell.textContent = grid[r][c];
+        else if(notes[r][c].size) cell.appendChild(makeNotesNode(r,c));
+
+        cell.addEventListener('click', () => {
+          selected = {r, c};
+          render();
+          saveGame();
+        });
+
+        boardEl.appendChild(cell);
+      }
+    }
+    updateStats();
+    updateToggles();
+    updateStatus();
+  }
+
+  function saveGame(){
+    const payload = {
+      grid, notes: notes.map(row => row.map(s => [...s])),
+      selected, elapsed, notesMode, autoCleanup,
+      difficulty: difficultyEl.value
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+  }
+
+  function loadGame(){
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return false;
+    try{
+      const data = JSON.parse(raw);
+      grid = data.grid;
+      notes = data.notes.map(row => row.map(arr => new Set(arr)));
+      selected = data.selected;
+      elapsed = data.elapsed || 0;
+      notesMode = !!data.notesMode;
+      autoCleanup = data.autoCleanup !== false;
+      difficultyEl.value = data.difficulty || 'medium';
+      history = [];
+      future = [];
+      render();
+      startTimer();
+      setStatus('Resumed saved game.');
+      return true;
+    }catch{
+      return false;
+    }
+  }
+
+  function applyTheme(theme){
+    document.body.classList.toggle('light', theme === 'light');
+    themeBtn.textContent = `Theme: ${theme === 'light' ? 'Light' : 'Dark'}`;
+    document.querySelector('meta[name="theme-color"]').setAttribute('content', theme === 'light' ? '#f8fafc' : '#111827');
+    localStorage.setItem(THEME_KEY, theme);
+  }
+
+  function toggleTheme(){
+    applyTheme(document.body.classList.contains('light') ? 'dark' : 'light');
+  }
+
+  function createSolvedBoard(){
+    const rows = Array.from({length:9}, (_, r) => r);
+    const cols = Array.from({length:9}, (_, c) => c);
+    function shuffle(a){
+      const out = a.slice();
+      for(let i=out.length-1;i>0;i--){
+        const j = Math.floor(Math.random()*(i+1));
+        [out[i], out[j]] = [out[j], out[i]];
+      }
+      return out;
+    }
+    const base = 3, side = base * base;
+    const pattern = (r, c) => (base * (r % base) + Math.floor(r / base) + c) % side;
+
+    const rBase = [0,1,2];
+    const rowsOrder = shuffle(rBase).flatMap(g => shuffle(rBase).map(r => g * base + r));
+    const colsOrder = shuffle(rBase).flatMap(g => shuffle(rBase).map(c => g * base + c));
+    const nums = shuffle([1,2,3,4,5,6,7,8,9]);
+
+    return rowsOrder.map(r => colsOrder.map(c => nums[pattern(r,c)]));
+  }
+
+  function countSolutions(board, limit=2){
+    function candidates(b, r, c){
+      if(b[r][c] !== 0) return [];
+      const used = new Set();
+      for(let i=0;i<9;i++){
+        if(b[r][i]) used.add(b[r][i]);
+        if(b[i][c]) used.add(b[i][c]);
+      }
+      const br = Math.floor(r/3)*3;
+      const bc = Math.floor(c/3)*3;
+      for(let rr=br; rr<br+3; rr++) for(let cc=bc; cc<bc+3; cc++) if(b[rr][cc]) used.add(b[rr][cc]);
+      const out = [];
+      for(let n=1;n<=9;n++) if(!used.has(n)) out.push(n);
+      return out;
+    }
+    let count = 0;
+    function solve(b){
+      let best = null;
+      for(let r=0;r<9;r++){
+        for(let c=0;c<9;c++){
+          if(b[r][c] === 0){
+            const cand = candidates(b, r, c);
+            if(cand.length === 0) return;
+            if(!best || cand.length < best.cand.length) best = {r, c, cand};
+          }
+        }
+      }
+      if(!best){
+        count++;
+        return;
+      }
+      for(const n of best.cand){
+        b[best.r][best.c] = n;
+        solve(b);
+        if(count >= limit) break;
+        b[best.r][best.c] = 0;
+      }
+      b[best.r][best.c] = 0;
+    }
+    solve(board.map(row => row.slice()));
+    return count;
+  }
+
+  function makePuzzleFromSolved(solved, difficulty){
+    const removalsMap = {easy:40, medium:50, hard:56};
+    const target = removalsMap[difficulty] || 50;
+    const board = solved.map(r => r.slice());
+    const cells = Array.from({length:81}, (_, i) => i);
+    for(let i=cells.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [cells[i], cells[j]] = [cells[j], cells[i]];
+    }
+    let removed = 0;
+    for(const idx of cells){
+      if(removed >= target) break;
+      const r = Math.floor(idx / 9), c = idx % 9;
+      const backup = board[r][c];
+      board[r][c] = 0;
+      if(countSolutions(board, 2) !== 1) board[r][c] = backup;
+      else removed++;
+    }
+    return board;
+  }
+
+  function newGame(){
+    const solved = createSolvedBoard();
+    const fresh = makePuzzleFromSolved(solved, difficultyEl.value);
+    grid = fresh;
+    notes = Array.from({length:9}, () => Array.from({length:9}, () => new Set()));
+    fillNotesAll();
+    selected = null;
+    elapsed = 0;
+    history = [];
+    future = [];
+    render();
+    startTimer();
+    saveGame();
+    setStatus(`New ${difficultyEl.value} Shandoku game loaded.`);
+  }
+
+  function placeNumber(n){
+    if(!selected) return;
+    const {r, c} = selected;
+    if(puzzle[r][c] !== 0 && JSON.stringify(puzzle) === JSON.stringify([
+      [5,3,0,0,7,0,0,0,0],
+      [6,0,0,1,9,5,0,0,0],
+      [0,9,8,0,0,0,0,6,0],
+      [8,0,0,0,6,0,0,0,3],
+      [4,0,0,8,0,3,0,0,1],
+      [7,0,0,0,2,0,0,0,6],
+      [0,6,0,0,0,0,2,8,0],
+      [0,0,0,4,1,9,0,0,5],
+      [0,0,0,0,8,0,0,7,9]
+    ])) {}
+    // Use current starting layout inferred from first loaded puzzle: any non-empty cell in current immutable start snapshot
+    if(startingGrid[r][c] !== 0){
+      setStatus('That cell is a starting number.');
+      return;
+    }
+    pushHistory();
+    if(notesMode){
+      if(grid[r][c] !== 0){
+        history.pop();
+        setStatus('Clear the number first before adding notes.');
+        return;
+      }
+      if(notes[r][c].has(n)) notes[r][c].delete(n);
+      else notes[r][c].add(n);
+      render();
+      saveGame();
+      return;
+    }
+    grid[r][c] = n;
+    notes[r][c].clear();
+    autoCleanNotesAround(r, c, n);
+    render();
+    saveGame();
+    if(isSolved()){
+      setStatus('Solved. Nice work.');
+      celebrate();
+    }
+  }
+
+  function clearSelected(){
+    if(!selected) return;
+    const {r, c} = selected;
+    if(startingGrid[r][c] !== 0){
+      setStatus('That cell is a starting number.');
+      return;
+    }
+    pushHistory();
+    grid[r][c] = 0;
+    notes[r][c].clear();
+    render();
+    saveGame();
+    setStatus(`Cleared r${r+1}c${c+1}.`);
+  }
+
+  function jumpToNextEmpty(){
+    const startIndex = selected ? selected.r * 9 + selected.c : -1;
+    for(let offset=1; offset<=81; offset++){
+      const idx = (startIndex + offset + 81) % 81;
+      const r = Math.floor(idx / 9), c = idx % 9;
+      if(grid[r][c] === 0 && startingGrid[r][c] === 0){
+        selected = {r, c};
+        render();
+        saveGame();
+        setStatus(`Moved to next empty cell: r${r+1}c${c+1}.`);
+        return true;
+      }
+    }
+    setStatus('No empty cells left.');
+    return false;
+  }
+
+  function giveHint(){
+    let best = null;
+    for(let r=0;r<9;r++){
+      for(let c=0;c<9;c++){
+        if(grid[r][c] === 0){
+          const cand = candidatesFor(r, c);
+          if(cand.length === 1){ best = {r, c, v: cand[0]}; break; }
+          if(!best && cand.length) best = {r, c, v: cand[0]};
+        }
+      }
+      if(best && best.v) break;
+    }
+    if(!best){
+      setStatus('Board is already complete.');
+      return;
+    }
+    selected = {r: best.r, c: best.c};
+    render();
+    setStatus(`Hint: r${best.r+1}c${best.c+1} can take ${best.v}.`);
+    saveGame();
+  }
+
+  function checkBoard(){
+    render();
+    if(isSolved()) setStatus('Everything checks out. Puzzle solved.');
+    else if(countErrors() === 0) setStatus(`No conflicts found. ${81 - countFilled()} cells still empty.`);
+    else setStatus(`${countErrors()} conflicting cell(s) found. Red marks the exact conflicting cells.`);
+  }
+
+  function solveBoard(){
+    // Solve current board via backtracking
+    pushHistory();
+    const b = cloneGrid(grid);
+    function solve(){
+      let best = null;
+      for(let r=0;r<9;r++){
+        for(let c=0;c<9;c++){
+          if(b[r][c] === 0){
+            const cand = candidatesForBoard(b, r, c);
+            if(cand.length === 0) return false;
+            if(!best || cand.length < best.cand.length) best = {r, c, cand};
+          }
+        }
+      }
+      if(!best) return true;
+      for(const n of best.cand){
+        b[best.r][best.c] = n;
+        if(solve()) return true;
+        b[best.r][best.c] = 0;
+      }
+      return false;
+    }
+    function candidatesForBoard(board, r, c){
+      if(board[r][c] !== 0) return [];
+      const used = new Set();
+      for(let i=0;i<9;i++){
+        if(board[r][i]) used.add(board[r][i]);
+        if(board[i][c]) used.add(board[i][c]);
+      }
+      const br = Math.floor(r / 3) * 3;
+      const bc = Math.floor(c / 3) * 3;
+      for(let rr=br; rr<br+3; rr++) for(let cc=bc; cc<bc+3; cc++) if(board[rr][cc]) used.add(board[rr][cc]);
+      const out = [];
+      for(let n=1;n<=9;n++) if(!used.has(n)) out.push(n);
+      return out;
+    }
+    solve();
+    grid = b;
+    notes = Array.from({length:9}, () => Array.from({length:9}, () => new Set()));
+    render();
+    saveGame();
+    setStatus('Solved.');
+  }
+
+  function moveSelection(dr, dc){
+    if(!selected) selected = {r:0, c:0};
+    else selected = {r:(selected.r + dr + 9) % 9, c:(selected.c + dc + 9) % 9};
+    render();
+    saveGame();
+  }
+
+  function buildDigitPad(){
+    const pad = document.getElementById('digitPad');
+    for(let n=1;n<=9;n++){
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = n;
+      btn.setAttribute('aria-label', `Enter ${n}`);
+      btn.addEventListener('click', () => placeNumber(n));
+      pad.appendChild(btn);
+    }
+    const erase = document.createElement('button');
+    erase.type = 'button';
+    erase.textContent = '⌫';
+    erase.setAttribute('aria-label', 'Clear selected cell');
+    erase.addEventListener('click', clearSelected);
+    pad.appendChild(erase);
+  }
+
+  let startingGrid = cloneGrid(grid);
+
+  function syncStartingGridFromCurrent(){
+    startingGrid = grid.map(row => row.map(v => v !== 0 ? v : 0));
+  }
+
+  function initializeDefault(){
+    grid = cloneGrid(puzzle);
+    syncStartingGridFromCurrent();
+    notes = Array.from({length:9}, () => Array.from({length:9}, () => new Set()));
+    fillNotesAll();
+    selected = null;
+    elapsed = 0;
+    history = [];
+    future = [];
+    render();
+    startTimer();
+    saveGame();
+  }
+
+  // Events
+  boardEl.addEventListener('touchstart', (e) => {
+    const t = e.changedTouches && e.changedTouches[0];
+    if(!t) return;
+    touchStart = {x:t.clientX, y:t.clientY};
+  }, {passive:true});
+
+  boardEl.addEventListener('touchend', (e) => {
+    if(!touchStart) return;
+    const t = e.changedTouches && e.changedTouches[0];
+    if(!t) return;
+    const dx = t.clientX - touchStart.x;
+    const dy = t.clientY - touchStart.y;
+    const absX = Math.abs(dx), absY = Math.abs(dy);
+    if(Math.max(absX, absY) < 28) return;
+    if(absX > absY) moveSelection(0, dx > 0 ? 1 : -1);
+    else moveSelection(dy > 0 ? 1 : -1, 0);
+    touchStart = null;
+  }, {passive:true});
+
+  document.getElementById('newGame').onclick = () => {
+    const solved = createSolvedBoard();
+    grid = makePuzzleFromSolved(solved, difficultyEl.value);
+    syncStartingGridFromCurrent();
+    notes = Array.from({length:9}, () => Array.from({length:9}, () => new Set()));
+    fillNotesAll();
+    selected = null;
+    elapsed = 0;
+    history = [];
+    future = [];
+    render();
+    startTimer();
+    saveGame();
+    setStatus(`New ${difficultyEl.value} Shandoku game loaded.`);
+  };
+  document.getElementById('newGameBottomBtn').onclick = document.getElementById('newGame').onclick;
+  document.getElementById('resumeBtn').onclick = () => { if(!loadGame()) setStatus('No saved game found on this device yet.'); };
+  document.getElementById('resumeBottomBtn').onclick = document.getElementById('resumeBtn').onclick;
+  document.getElementById('hintBtn').onclick = giveHint;
+  document.getElementById('checkBtn').onclick = checkBoard;
+  document.getElementById('solveBtn').onclick = solveBoard;
+  document.getElementById('nextEmptyBtn').onclick = jumpToNextEmpty;
+  document.getElementById('clearBtn').onclick = clearSelected;
+  document.getElementById('undoBtn').onclick = undo;
+  document.getElementById('redoBtn').onclick = redo;
+
+  notesModeBtn.onclick = () => { notesMode = !notesMode; render(); saveGame(); };
+  document.getElementById('toggleNotesBottomBtn').onclick = notesModeBtn.onclick;
+  autoNotesBtn.onclick = () => { autoCleanup = !autoCleanup; render(); saveGame(); };
+  document.getElementById('toggleAutoBottomBtn').onclick = autoNotesBtn.onclick;
+  document.getElementById('fillNotesBtn').onclick = () => { fillNotesAll(); render(); saveGame(); setStatus('Filled notes for all empty cells using current candidates.'); };
+  document.getElementById('fillNotesBottomBtn').onclick = document.getElementById('fillNotesBtn').onclick;
+  themeBtn.onclick = toggleTheme;
+  document.getElementById('toggleThemeBottomBtn').onclick = toggleTheme;
+
+  document.addEventListener('keydown', (e) => {
+    if(e.key >= '1' && e.key <= '9') placeNumber(Number(e.key));
+    else if(['Backspace', 'Delete', '0'].includes(e.key)) clearSelected();
+    else if(e.key === 'ArrowUp') moveSelection(-1, 0);
+    else if(e.key === 'ArrowDown') moveSelection(1, 0);
+    else if(e.key === 'ArrowLeft') moveSelection(0, -1);
+    else if(e.key === 'ArrowRight') moveSelection(0, 1);
+    else if(e.key.toLowerCase() === 'n') notesModeBtn.click();
+    else if(e.key.toLowerCase() === 'h') giveHint();
+    else if(e.key.toLowerCase() === 'z' && (e.ctrlKey || e.metaKey)) undo();
+    else if(e.key.toLowerCase() === 'y' && (e.ctrlKey || e.metaKey)) redo();
+  });
+
+  applyTheme(localStorage.getItem(THEME_KEY) || 'dark');
+  buildDigitPad();
+
+  // Custom load to preserve starting layout
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if(raw){
+    try{
+      const data = JSON.parse(raw);
+      grid = data.grid;
+      startingGrid = data.grid.map(row => row.map(v => v !== 0 ? v : 0));
+      // reconstruct starting grid from notes impossible; instead persist separately via non-user entries? Better save it explicitly next time.
+      if(data.startingGrid) startingGrid = data.startingGrid;
+      notes = data.notes.map(row => row.map(arr => new Set(arr)));
+      selected = data.selected;
+      elapsed = data.elapsed || 0;
+      notesMode = !!data.notesMode;
+      autoCleanup = data.autoCleanup !== false;
+      difficultyEl.value = data.difficulty || 'medium';
+      history = [];
+      future = [];
+      render();
+      startTimer();
+      setStatus('Resumed saved game.');
+    } catch {
+      initializeDefault();
+    }
+  } else {
+    initializeDefault();
+  }
+
+  // Override saveGame now that startingGrid exists
+  saveGame = function(){
+    const payload = {
+      grid, startingGrid, notes: notes.map(row => row.map(s => [...s])),
+      selected, elapsed, notesMode, autoCleanup,
+      difficulty: difficultyEl.value
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+  };
+  saveGame();
+})();
+</script>
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
