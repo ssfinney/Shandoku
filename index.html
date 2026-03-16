@@ -13,6 +13,34 @@
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
   <link rel="stylesheet" href="style.css" />
   <title>Shandoku – Wife Edition</title>
+  <style>
+    /* Critical splash CSS — inlined so it works even while a stale
+       service-worker cache is still serving the old style.css */
+    .splash{position:fixed;inset:0;background:#0b1220;display:flex;
+      flex-direction:column;align-items:center;justify-content:center;
+      gap:2rem;z-index:9999;transition:opacity .5s ease-out}
+    .splash.fade-out{opacity:0;pointer-events:none}
+    .splash-title{font-size:3rem;font-weight:800;letter-spacing:.15rem;
+      color:#00ffcc;margin:0;animation:splash-pulse 1.5s infinite alternate}
+    @keyframes splash-pulse{
+      from{text-shadow:0 0 6px #00ffcc}
+      to{text-shadow:0 0 22px #00ffcc,0 0 44px rgba(0,255,204,.45)}}
+    .splash-oval{width:160px;height:210px;border-radius:50%;overflow:hidden;
+      border:3px solid #00ffcc;box-shadow:0 0 28px rgba(0,255,204,.5);
+      animation:whimsical-spin 3s ease-in-out infinite;flex-shrink:0}
+    .splash-img{width:100%;height:100%;object-fit:cover;object-position:center 15%}
+    @keyframes whimsical-spin{
+      0%  {transform:scale(1)    rotate(0deg)}
+      10% {transform:scale(1.08) rotate(20deg)}
+      25% {transform:scale(1)    rotate(-15deg)}
+      40% {transform:scale(1.05) rotate(15deg)}
+      100%{transform:scale(1)    rotate(360deg)}}
+    .splash-dots{font-size:1.5rem;color:rgba(255,255,255,.6);margin:0;
+      animation:dot-fade 1.5s infinite}
+    @keyframes dot-fade{0%,100%{opacity:1}50%{opacity:.25}}
+    @media(prefers-reduced-motion:reduce){
+      .splash-title,.splash-oval,.splash-dots{animation:none}}
+  </style>
 </head>
 <body>
   <div id="splash" class="splash" role="status" aria-label="Shandoku is loading">
