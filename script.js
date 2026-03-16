@@ -202,13 +202,12 @@
 
   function render(){
     boardEl.innerHTML='';
-    const blocks=[];
-    for(let b=0;b<9;b++){
+    const fragment=document.createDocumentFragment();
+    const blocks=Array.from({length:9},()=>{
       const div=document.createElement('div');
       div.className='block';
-      blocks.push(div);
-      boardEl.appendChild(div);
-    }
+      return div;
+    });
     for(let r=0;r<GRID_SIZE;r++){
       for(let c=0;c<GRID_SIZE;c++){
         const cell=document.createElement('button');
@@ -230,6 +229,8 @@
         blocks[Math.floor(r/3)*3+Math.floor(c/3)].appendChild(cell);
       }
     }
+    blocks.forEach(block=>fragment.appendChild(block));
+    boardEl.appendChild(fragment);
     updateStats(); updateToggles(); updateStatus(); updateDigitPad();
   }
 
