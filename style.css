@@ -4,8 +4,8 @@
   --panel:rgba(17,24,39,.98);
   --panel2:#0f172a;
   --cell:#f8fafc;
-  --fixed:#e2e8f0;
-  --user:#dbeafe;
+  --fixed:#c7d2e9;
+  --user:#bfdbfe;
   --userText:#1d4ed8;
   --notesText:#94a3b8;
   --grid:#334155;
@@ -20,6 +20,7 @@
   --muted:#94a3b8;
   --button:#1f2937;
   --buttonText:#fff;
+  --safe-top:env(safe-area-inset-top, 0px);
   --safe-bottom:env(safe-area-inset-bottom, 0px);
   --shadow:rgba(0,0,0,.24);
 }
@@ -30,8 +31,8 @@ body.light{
   --panel:rgba(255,255,255,.98);
   --panel2:#e8eef7;
   --cell:#ffffff;
-  --fixed:#e2e8f0;
-  --user:#dbeafe;
+  --fixed:#c7d2e9;
+  --user:#bfdbfe;
   --userText:#1d4ed8;
   --notesText:#475569;
   --grid:#94a3b8;
@@ -57,7 +58,7 @@ body{
   font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
   background:linear-gradient(180deg,var(--bg1),var(--bg2));
   color:var(--text);
-  padding:8px 8px calc(8px + var(--safe-bottom));
+  padding:calc(8px + var(--safe-top)) 8px calc(8px + var(--safe-bottom));
   -webkit-tap-highlight-color:transparent;
   overscroll-behavior-y:contain;
   text-size-adjust:100%;
@@ -128,7 +129,8 @@ button:active,select:active{transform:scale(.985)}
 }
 .board{
   display:grid;
-  grid-template-columns:repeat(9,1fr);
+  grid-template-columns:repeat(3,1fr);
+  gap:6px;
   width:100%;
   aspect-ratio:1/1;
   background:var(--thick);
@@ -136,6 +138,12 @@ button:active,select:active{transform:scale(.985)}
   border-radius:12px;
   user-select:none;
   touch-action:pan-y;
+}
+.block{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:2px;
+  background:var(--thick);
 }
 
 .cell{
@@ -147,7 +155,7 @@ button:active,select:active{transform:scale(.985)}
   justify-content:center;
   font-weight:700;
   font-size:clamp(18px,5.3vw,31px);
-  margin:2px;
+  margin:0;
   border-radius:6px;
   padding:0;
   user-select:none;
@@ -159,8 +167,6 @@ button:active,select:active{transform:scale(.985)}
 .cell.error{background:var(--error);color:var(--errorText);outline:2px solid #dc2626}
 .cell.error.selected{outline:3px solid #dc2626}
 .cell.okflash{background:var(--good)}
-.block-right{margin-right:8px}
-.block-bottom{margin-bottom:8px}
 
 .notes{
   position:absolute;
