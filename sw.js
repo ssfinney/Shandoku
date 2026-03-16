@@ -1,11 +1,12 @@
-const CACHE_NAME = 'shandoku-wife-edition-v2';
+const CACHE_NAME = 'shandoku-wife-edition-v3';
 const STATIC_ASSETS = [
   './index.html',
   './style.css',
   './script.js',
   './manifest.webmanifest',
   './icons/icon-192.png',
-  './icons/icon-512.png'
+  './icons/icon-512.png',
+  './icons/shannon_head.png'
 ];
 
 self.addEventListener('install', event => {
