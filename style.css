@@ -308,6 +308,10 @@ button:active,select:active{transform:scale(.985)}
   50%{opacity:.25}
 }
 
+@media(prefers-reduced-motion:reduce){
+  .splash-title,.splash-oval,.splash-dots{animation:none}
+}
+
 /* ── Error shake ─────────────────────────────────────────────────────────── */
 .error-shake{
   animation:shake .4s cubic-bezier(.36,.07,.19,.97) both;
