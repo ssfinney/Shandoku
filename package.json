@@ -1,0 +1,15 @@
+{
+  "name": "shandoku",
+  "version": "1.0.0",
+  "description": "Sudoku PWA – Wife Edition",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "lint": "eslint script.js sw.js",
+    "lint:fix": "eslint --fix script.js sw.js"
+  },
+  "devDependencies": {
+    "eslint": "^9.0.0",
+    "globals": "^15.0.0"
+  }
+}
