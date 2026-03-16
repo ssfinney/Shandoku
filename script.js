@@ -122,6 +122,7 @@
     grid=cloneGrid(snap.grid); notes=cloneNotes(snap.notes);
     selected=snap.selected?{...snap.selected}:null;
     elapsed=snap.elapsed; notesMode=snap.notesMode; autoCleanup=snap.autoCleanup;
+    document.querySelector('.board-shell').classList.remove('victory-glow');
     render(); updateStats(); updateToggles(); saveGame();
   }
 
@@ -201,11 +202,20 @@
 
   function render(){
     boardEl.innerHTML='';
+    const blocks=[];
+    for(let b=0;b<9;b++){
+      const div=document.createElement('div');
+      div.className='block';
+      blocks.push(div);
+      boardEl.appendChild(div);
+    }
     for(let r=0;r<GRID_SIZE;r++){
       for(let c=0;c<GRID_SIZE;c++){
         const cell=document.createElement('button');
         cell.type='button';
         cell.className='cell';
+        cell.dataset.r=r;
+        cell.dataset.c=c;
         const isFixed=startingGrid[r][c]!==0;
         const isUser=!isFixed&&grid[r][c]!==0;
         if(isFixed) cell.classList.add('fixed');
@@ -213,13 +223,11 @@
         if(isRelated(r,c)) cell.classList.add('related');
         if(selected&&selected.r===r&&selected.c===c) cell.classList.add('selected');
         if(hasConflict(r,c)) cell.classList.add('error');
-        if(c===2||c===5) cell.classList.add('block-right');
-        if(r===2||r===5) cell.classList.add('block-bottom');
         cell.setAttribute('aria-label',`Row ${r+1} Column ${c+1}`);
         if(grid[r][c]) cell.textContent=grid[r][c];
         else if(notes[r][c].size) cell.appendChild(makeNotesNode(r,c));
         cell.addEventListener('click',()=>{ selected={r,c}; render(); saveGame(); });
-        boardEl.appendChild(cell);
+        blocks[Math.floor(r/3)*3+Math.floor(c/3)].appendChild(cell);
       }
     }
     updateStats(); updateToggles(); updateStatus(); updateDigitPad();
@@ -369,7 +377,7 @@
     render(); saveGame();
     if(hasConflict(r,c)){
       vibrate([10,50,10]);
-      const cellEl=boardEl.children[r*9+c];
+      const cellEl=boardEl.querySelector(`[data-r="${r}"][data-c="${c}"]`);
       if(cellEl){ cellEl.classList.add('error-shake'); setTimeout(()=>cellEl.classList.remove('error-shake'),400); }
     } else {
       vibrate(10);
@@ -448,10 +456,12 @@
       }
       return false;
     }
-    solve();
+    const ok=solve();
     grid=b;
     notes=Array.from({length:GRID_SIZE},()=>Array.from({length:GRID_SIZE},()=>new Set()));
-    render(); saveGame(); setStatus('Solved.');
+    render(); saveGame();
+    if(ok) setStatus('Solved.');
+    else setStatus('Could not solve — fix the conflicts first.');
   }
 
   function moveSelection(dr, dc){
