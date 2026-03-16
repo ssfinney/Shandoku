@@ -143,11 +143,16 @@
 
   // ── UI updates ────────────────────────────────────────────────────────────
 
+  const splashShownAt=Date.now();
   function hideSplash(){
     const splash=document.getElementById('splash');
     if(!splash) return;
-    splash.classList.add('fade-out');
-    splash.addEventListener('transitionend',()=>splash.remove(),{once:true});
+    const elapsed=Date.now()-splashShownAt;
+    const delay=Math.max(0,800-elapsed);
+    setTimeout(()=>{
+      splash.classList.add('fade-out');
+      splash.addEventListener('transitionend',()=>splash.remove(),{once:true});
+    },delay);
   }
 
   function setStatus(msg){ statusEl.textContent=msg; }
@@ -590,17 +595,20 @@
   applyTheme(localStorage.getItem(THEME_KEY)||'dark');
   buildDigitPad();
 
-  const raw=localStorage.getItem(STORAGE_KEY);
-  if(raw){
-    try{
-      const saved=JSON.parse(raw);
-      if(confirm('Resume your saved game?')){
-        applyLoadedData(saved);
-      } else {
-        newGame();
-      }
-    } catch(e){ console.error('Failed to restore saved game:',e); newGame(); }
-  } else {
-    newGame();
-  }
+  // Defer game init until after the first paint so the splash animates.
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    const raw=localStorage.getItem(STORAGE_KEY);
+    if(raw){
+      try{
+        const saved=JSON.parse(raw);
+        if(confirm('Resume your saved game?')){
+          applyLoadedData(saved);
+        } else {
+          newGame();
+        }
+      } catch(e){ console.error('Failed to restore saved game:',e); newGame(); }
+    } else {
+      newGame();
+    }
+  }));
 })();
