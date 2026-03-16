@@ -9,8 +9,8 @@
   const statusEl = document.getElementById('status');
   const difficultyEl = document.getElementById('difficulty');
   const timeStat = document.getElementById('timeStat');
-  const filledStat = document.getElementById('filledStat');
   const errorStat = document.getElementById('errorStat');
+  const progressBar = document.getElementById('progressBar');
   const notesModeBtn = document.getElementById('notesModeBtn');
   const autoNotesBtn = document.getElementById('autoNotesBtn');
   const themeBtn = document.getElementById('themeBtn');
@@ -154,8 +154,14 @@
 
   function updateStats(){
     timeStat.textContent=formatTime(elapsed);
-    filledStat.textContent=`${countFilled()}/${TOTAL_CELLS}`;
-    errorStat.textContent=String(countErrors());
+    const errs=countErrors();
+    if(errs>0){
+      errorStat.textContent=`${errs} err`;
+      errorStat.hidden=false;
+    } else {
+      errorStat.hidden=true;
+    }
+    progressBar.style.width=`${Math.round(countFilled()/81*100)}%`;
   }
 
   function updateToggles(){
@@ -163,10 +169,6 @@
     notesModeBtn.classList.toggle('active',notesMode);
     autoNotesBtn.textContent=autoCleanup?'Auto-clean On':'Auto-clean Off';
     autoNotesBtn.classList.toggle('active',autoCleanup);
-    document.getElementById('toggleNotesBottomBtn').textContent=notesMode?'Notes On':'Notes Off';
-    document.getElementById('toggleNotesBottomBtn').classList.toggle('active',notesMode);
-    document.getElementById('toggleAutoBottomBtn').textContent=autoCleanup?'Auto-clean On':'Auto-clean Off';
-    document.getElementById('toggleAutoBottomBtn').classList.toggle('active',autoCleanup);
   }
 
   function updateDigitPad(){
@@ -185,16 +187,16 @@
   }
 
   function updateStatus(){
-    if(!selected){ setStatus('Tap a cell, then tap a number. Red means that exact cell conflicts with another value in its row, column, or 3×3 block.'); return; }
+    if(!selected){ setStatus('Tap a cell to select it, then tap a number.'); return; }
     const {r,c}=selected;
     const isFixed=startingGrid[r][c]!==0;
     const value=grid[r][c];
     const nc=notes[r][c].size;
-    if(isFixed){ setStatus(`r${r+1}c${c+1} is a starting number.`); return; }
-    if(notesMode&&!value){ setStatus(`Notes mode is on. r${r+1}c${c+1} has ${nc} note${nc===1?'':'s'}.`); return; }
-    if(!value){ setStatus(`r${r+1}c${c+1} is empty.${nc?` It has ${nc} note${nc===1?'':'s'}.`:''}`); return; }
-    if(hasConflict(r,c)) setStatus(`r${r+1}c${c+1} is red because that exact cell conflicts with another ${value} in its row, column, or 3×3 block.`);
-    else setStatus(`r${r+1}c${c+1} contains your ${value}.${autoCleanup?' Related notes were auto-cleaned.':''}`);
+    if(isFixed){ setStatus('Starting number — this cell cannot be changed.'); return; }
+    if(notesMode&&!value){ setStatus(nc?`Notes mode on — ${nc} pencil mark${nc===1?'':'s'} here.`:'Notes mode on — tap numbers to toggle pencil marks.'); return; }
+    if(!value){ setStatus(nc?`Empty cell — ${nc} pencil mark${nc===1?'':'s'}.`:'Empty cell selected.'); return; }
+    if(hasConflict(r,c)) setStatus(`Conflict! This ${value} clashes with another in its row, column, or block.`);
+    else setStatus(`You placed a ${value} here.${autoCleanup?' Related notes cleaned up.':''}`);
   }
 
   function makeNotesNode(r, c){
@@ -404,11 +406,11 @@
   function clearSelected(){
     if(!selected) return;
     const {r,c}=selected;
-    if(startingGrid[r][c]!==0){ setStatus('That cell is a starting number.'); return; }
+    if(startingGrid[r][c]!==0){ setStatus('Starting number — this cell cannot be changed.'); return; }
     pushHistory();
     grid[r][c]=0; notes[r][c].clear();
     render(); saveGame();
-    setStatus(`Cleared r${r+1}c${c+1}.`);
+    setStatus('Cell cleared.');
   }
 
   function jumpToNextEmpty(){
@@ -418,11 +420,11 @@
       const r=Math.floor(idx/9), c=idx%9;
       if(grid[r][c]===0&&startingGrid[r][c]===0){
         selected={r,c}; render(); saveGame();
-        setStatus(`Moved to next empty cell: r${r+1}c${c+1}.`);
+        setStatus('Jumped to next empty cell.');
         return true;
       }
     }
-    setStatus('No empty cells left.');
+    setStatus('No empty cells remaining.');
     return false;
   }
 
@@ -440,7 +442,7 @@
     if(!best){ setStatus('Board is already complete.'); return; }
     selected={r:best.r,c:best.c};
     render(); saveGame();
-    setStatus(`Hint: r${best.r+1}c${best.c+1} can take ${best.v}.`);
+    setStatus(`Hint: try a ${best.v} in this cell.`);
   }
 
   function checkBoard(){
@@ -523,35 +525,52 @@
     else moveSelection(dy>0?1:-1,0);
   },{passive:true});
 
-  document.getElementById('newGame').onclick=newGame;
   document.getElementById('newGameBottomBtn').onclick=newGame;
 
-  document.getElementById('resumeBtn').onclick=
+  const settingsModal=document.getElementById('settingsModal');
+  document.getElementById('settingsBtn').onclick=()=>{ settingsModal.hidden=false; };
+  document.getElementById('settingsCloseBtn').onclick=()=>{ settingsModal.hidden=true; };
+  document.getElementById('settingsBackdrop').onclick=()=>{ settingsModal.hidden=true; };
+
   document.getElementById('resumeBottomBtn').onclick=()=>{
     const raw=localStorage.getItem(STORAGE_KEY);
     if(!raw){ setStatus('No saved game found on this device yet.'); return; }
-    try{ applyLoadedData(JSON.parse(raw)); } catch{ setStatus('Could not load saved game.'); }
+    try{ applyLoadedData(JSON.parse(raw)); settingsModal.hidden=true; } catch(e){ console.error('Failed to load saved game:',e); setStatus('Could not load saved game.'); }
   };
 
   document.getElementById('hintBtn').onclick=giveHint;
   document.getElementById('checkBtn').onclick=checkBoard;
   document.getElementById('solveBtn').onclick=solveBoard;
   document.getElementById('nextEmptyBtn').onclick=jumpToNextEmpty;
-  document.getElementById('clearBtn').onclick=clearSelected;
   document.getElementById('undoBtn').onclick=undo;
   document.getElementById('redoBtn').onclick=redo;
 
   notesModeBtn.onclick=()=>{ notesMode=!notesMode; render(); saveGame(); };
-  document.getElementById('toggleNotesBottomBtn').onclick=notesModeBtn.onclick;
   autoNotesBtn.onclick=()=>{ autoCleanup=!autoCleanup; render(); saveGame(); };
-  document.getElementById('toggleAutoBottomBtn').onclick=autoNotesBtn.onclick;
 
-  const fillNotesHandler=()=>{ fillNotesAll(); render(); saveGame(); setStatus('Filled notes for all empty cells using current candidates.'); };
-  document.getElementById('fillNotesBtn').onclick=fillNotesHandler;
-  document.getElementById('fillNotesBottomBtn').onclick=fillNotesHandler;
+  document.getElementById('fillNotesBtn').onclick=()=>{ fillNotesAll(); render(); saveGame(); setStatus('Filled notes for all empty cells.'); };
 
   themeBtn.onclick=toggleTheme;
-  document.getElementById('toggleThemeBottomBtn').onclick=toggleTheme;
+
+  // Add to Home Screen
+  let deferredInstallPrompt=null;
+  const installBtn=document.getElementById('installBtn');
+  window.addEventListener('beforeinstallprompt',e=>{
+    e.preventDefault();
+    deferredInstallPrompt=e;
+    installBtn.hidden=false;
+  });
+  installBtn.onclick=async()=>{
+    if(!deferredInstallPrompt) return;
+    deferredInstallPrompt.prompt();
+    await deferredInstallPrompt.userChoice;
+    deferredInstallPrompt=null;
+    installBtn.hidden=true;
+  };
+  window.addEventListener('appinstalled',()=>{
+    installBtn.hidden=true;
+    deferredInstallPrompt=null;
+  });
 
   document.addEventListener('keydown',e=>{
     if(e.key>='1'&&e.key<='9') placeNumber(Number(e.key));
@@ -580,7 +599,7 @@
       } else {
         newGame();
       }
-    } catch{ newGame(); }
+    } catch(e){ console.error('Failed to restore saved game:',e); newGame(); }
   } else {
     newGame();
   }
