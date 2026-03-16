@@ -37,7 +37,9 @@ self.addEventListener('fetch', event => {
       fetch(event.request)
         .then(response => {
           const copy = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
+          event.waitUntil(
+            caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy))
+          );
           return response;
         })
         .catch(() => caches.match('./index.html'))
@@ -45,15 +47,17 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Cache-first for all other static assets
+  // Network-first for all assets so pushed updates are immediately visible.
+  // Falls back to cache when offline.
   event.respondWith(
-    caches.match(event.request).then(cached => {
-      if (cached) return cached;
-      return fetch(event.request).then(response => {
+    fetch(event.request)
+      .then(response => {
         const copy = response.clone();
-        caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
+        event.waitUntil(
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy))
+        );
         return response;
-      }).catch(() => caches.match('./index.html'));
-    })
+      })
+      .catch(() => caches.match(event.request))
   );
 });
