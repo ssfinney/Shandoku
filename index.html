@@ -52,68 +52,79 @@
   </div>
 
   <div class="app">
-    <div class="header">
+    <!-- Compact top bar: title | timer + errors | settings -->
+    <div class="top-bar">
       <h1>Shandoku 😂</h1>
-      <p class="sub">Definitive Wife Edition — built for Android Chrome with big tap targets, auto-save, notes, swipe movement, and polished board feedback.</p>
-    </div>
-
-    <div class="legend">
-      <span><i class="swatch" style="background:var(--fixed)"></i> starting numbers</span>
-      <span><i class="swatch" style="background:var(--user)"></i> your numbers</span>
-      <span><i class="swatch" style="background:var(--error)"></i> conflicting cell</span>
-    </div>
-
-    <div class="toolbar">
-      <button class="primary" id="newGame">New Game</button>
-      <select id="difficulty" aria-label="Difficulty">
-        <option value="easy">Easy</option>
-        <option value="medium" selected>Medium</option>
-        <option value="hard">Hard</option>
-      </select>
-      <button id="notesModeBtn" class="toggle">Notes Off</button>
-      <button id="autoNotesBtn" class="toggle active">Auto-clean On</button>
-      <button id="fillNotesBtn">Fill Notes</button>
-      <button id="hintBtn">Hint</button>
-      <button id="checkBtn">Check</button>
-      <button id="solveBtn">Solve</button>
-      <button id="resumeBtn">Resume</button>
-      <button id="themeBtn">Theme: Dark</button>
-      <button id="nextEmptyBtn">Next Empty</button>
-      <button id="clearBtn">Clear</button>
+      <div class="top-stats">
+        <span id="timeStat">00:00</span>
+        <span id="errorStat" class="error-chip" hidden></span>
+      </div>
+      <button id="settingsBtn" class="icon-btn" aria-label="Open settings">⚙</button>
     </div>
 
     <div class="main">
+      <!-- Thin progress bar just above the board -->
+      <div class="progress-wrap">
+        <div id="progressBar" class="progress-fill"></div>
+      </div>
+
       <div class="board-shell">
         <div id="board" class="board" aria-label="Shandoku board"></div>
       </div>
 
-      <div class="stats">
-        <div class="stat"><div class="label">Time</div><div class="value" id="timeStat">00:00</div></div>
-        <div class="stat"><div class="label">Filled</div><div class="value" id="filledStat">0/81</div></div>
-        <div class="stat"><div class="label">Errors</div><div class="value" id="errorStat">0</div></div>
-      </div>
-
-      <div id="status" class="status">Tap a cell, then tap a number. Red means that exact cell conflicts with another value in its row, column, or 3×3 block.</div>
+      <div id="status" class="status">Tap a cell to select it, then tap a number.</div>
 
       <div class="controls">
-        <div class="digit-pad" id="digitPad"></div>
+        <!-- Undo | Notes toggle | Redo -->
         <div class="action-row">
-          <button id="undoBtn">Undo</button>
-          <button id="redoBtn">Redo</button>
-          <button id="toggleThemeBottomBtn">Theme</button>
+          <button id="undoBtn">↩ Undo</button>
+          <button id="notesModeBtn" class="toggle notes-toggle">Notes Off</button>
+          <button id="redoBtn">Redo ↪</button>
         </div>
+
+        <!-- 3×3 digit pad + erase -->
+        <div class="digit-pad" id="digitPad"></div>
+
+        <!-- Hint | New Game -->
         <div class="action-row2">
-          <button id="toggleNotesBottomBtn">Notes</button>
-          <button id="toggleAutoBottomBtn">Auto-clean</button>
-          <button id="fillNotesBottomBtn">Fill Notes</button>
+          <button id="hintBtn">Hint</button>
+          <button id="newGameBottomBtn" class="primary">New Game</button>
         </div>
-        <div class="action-row3">
-          <button id="newGameBottomBtn">New Game</button>
-          <button id="resumeBottomBtn">Resume Saved</button>
-        </div>
-        <div class="footer">
-          Tip: add this page to Home screen in Chrome for an app-like feel. Swipe on the board to move the selected cell.
-        </div>
+
+        <!-- Install button — hidden until beforeinstallprompt fires -->
+        <button id="installBtn" class="install-btn" hidden>⬇ Add to Home Screen</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings bottom sheet -->
+  <div id="settingsModal" class="settings-modal" hidden>
+    <div class="settings-backdrop" id="settingsBackdrop"></div>
+    <div class="settings-sheet">
+      <div class="settings-header">
+        <span class="settings-title">Options</span>
+        <button id="settingsCloseBtn" class="icon-btn" aria-label="Close settings">✕</button>
+      </div>
+
+      <div class="legend">
+        <span><i class="swatch" style="background:var(--fixed)"></i> Starting numbers</span>
+        <span><i class="swatch" style="background:var(--user)"></i> Your numbers</span>
+        <span><i class="swatch" style="background:var(--error)"></i> Conflict</span>
+      </div>
+
+      <div class="settings-grid">
+        <select id="difficulty" aria-label="Difficulty">
+          <option value="easy">Easy</option>
+          <option value="medium" selected>Medium</option>
+          <option value="hard">Hard</option>
+        </select>
+        <button id="themeBtn">Theme: Dark</button>
+        <button id="autoNotesBtn" class="toggle active">Auto-clean On</button>
+        <button id="fillNotesBtn">Fill Notes</button>
+        <button id="checkBtn">Check Board</button>
+        <button id="nextEmptyBtn">Next Empty</button>
+        <button id="resumeBottomBtn">Resume Saved</button>
+        <button id="solveBtn">Solve</button>
       </div>
     </div>
   </div>
