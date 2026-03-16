@@ -10,6 +10,7 @@
   const difficultyEl = document.getElementById('difficulty');
   const timeStat = document.getElementById('timeStat');
   const errorStat = document.getElementById('errorStat');
+  const progressBar = document.getElementById('progressBar');
   const notesModeBtn = document.getElementById('notesModeBtn');
   const autoNotesBtn = document.getElementById('autoNotesBtn');
   const themeBtn = document.getElementById('themeBtn');
@@ -160,7 +161,7 @@
     } else {
       errorStat.hidden=true;
     }
-    document.getElementById('progressBar').style.width=`${Math.round(countFilled()/81*100)}%`;
+    progressBar.style.width=`${Math.round(countFilled()/81*100)}%`;
   }
 
   function updateToggles(){
@@ -534,7 +535,7 @@
   document.getElementById('resumeBottomBtn').onclick=()=>{
     const raw=localStorage.getItem(STORAGE_KEY);
     if(!raw){ setStatus('No saved game found on this device yet.'); return; }
-    try{ applyLoadedData(JSON.parse(raw)); settingsModal.hidden=true; } catch{ setStatus('Could not load saved game.'); }
+    try{ applyLoadedData(JSON.parse(raw)); settingsModal.hidden=true; } catch(e){ console.error('Failed to load saved game:',e); setStatus('Could not load saved game.'); }
   };
 
   document.getElementById('hintBtn').onclick=giveHint;
@@ -598,7 +599,7 @@
       } else {
         newGame();
       }
-    } catch{ newGame(); }
+    } catch(e){ console.error('Failed to restore saved game:',e); newGame(); }
   } else {
     newGame();
   }
