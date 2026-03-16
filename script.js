@@ -142,6 +142,13 @@
 
   // ── UI updates ────────────────────────────────────────────────────────────
 
+  function hideSplash(){
+    const splash=document.getElementById('splash');
+    if(!splash) return;
+    splash.classList.add('fade-out');
+    splash.addEventListener('transitionend',()=>splash.remove(),{once:true});
+  }
+
   function setStatus(msg){ statusEl.textContent=msg; }
 
   function updateStats(){
@@ -267,7 +274,7 @@
     difficultyEl.value=data.difficulty||'medium';
     history=[]; future=[];
     document.querySelector('.board-shell').classList.remove('victory-glow');
-    render(); startTimer(); setStatus('Resumed saved game.');
+    render(); startTimer(); hideSplash(); setStatus('Resumed saved game.');
   }
 
   // ── Theme ─────────────────────────────────────────────────────────────────
@@ -357,7 +364,7 @@
     fillNotesAll();
     selected=null; elapsed=0; history=[]; future=[];
     document.querySelector('.board-shell').classList.remove('victory-glow');
-    render(); startTimer(); saveGame();
+    render(); startTimer(); saveGame(); hideSplash();
     setStatus(`New ${difficultyEl.value} Shandoku game loaded.`);
   }
 
