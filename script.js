@@ -2,6 +2,7 @@
   const STORAGE_KEY = 'shandoku-wife-edition-save-v1';
   const THEME_KEY = 'shandoku-wife-edition-theme-v1';
   const GRID_SIZE = 9;
+  const TOTAL_CELLS = GRID_SIZE * GRID_SIZE;
   const HISTORY_LIMIT = 200;
 
   const boardEl = document.getElementById('board');
@@ -73,7 +74,7 @@
     return n;
   }
 
-  function isSolved(){ return countFilled()===81 && countErrors()===0; }
+  function isSolved(){ return countFilled()===TOTAL_CELLS && countErrors()===0; }
 
   function isRelated(r, c){
     if(!selected || (selected.r===r && selected.c===c)) return false;
@@ -230,7 +231,7 @@
         if(isRelated(r,c)) cell.classList.add('related');
         if(selected&&selected.r===r&&selected.c===c) cell.classList.add('selected');
         if(hasConflict(r,c)) cell.classList.add('error');
-        cell.setAttribute('aria-label',`Row ${r+1} Column ${c+1}`);
+        cell.setAttribute('aria-label',`Row ${r+1} Column ${c+1}${grid[r][c]?`, value ${grid[r][c]}`:', empty'}`);
         if(grid[r][c]) cell.textContent=grid[r][c];
         else if(notes[r][c].size) cell.appendChild(makeNotesNode(r,c));
         cell.addEventListener('click',()=>{ selected={r,c}; render(); saveGame(); });
@@ -249,6 +250,7 @@
     });
     document.querySelector('.board-shell').classList.add('victory-glow');
     vibrate([50,30,80]);
+    // eslint-disable-next-line no-console
     console.log('game_won',{elapsed,difficulty:difficultyEl.value});
   }
 
@@ -261,12 +263,18 @@
       selected, elapsed, notesMode, autoCleanup,
       difficulty:difficultyEl.value
     };
-    localStorage.setItem(STORAGE_KEY,JSON.stringify(payload));
+    try{
+      localStorage.setItem(STORAGE_KEY,JSON.stringify(payload));
+    } catch(e){
+      if(e instanceof DOMException && e.name==='QuotaExceededError'){
+        setStatus('Auto-save failed: storage quota exceeded.');
+      }
+    }
   }
 
   function applyLoadedData(data){
     grid=data.grid;
-    startingGrid=data.startingGrid||data.grid.map(row=>row.map(v=>v!==0?v:0));
+    startingGrid=data.startingGrid||data.grid.map(row=>row.slice());
     notes=data.notes.map(row=>row.map(arr=>new Set(arr)));
     selected=data.selected;
     elapsed=data.elapsed||0;
@@ -337,11 +345,11 @@
     const removals={easy:40,medium:50,hard:56};
     const target=removals[difficulty]||50;
     const board=solved.map(r=>r.slice());
-    const cells=shuffle(Array.from({length:81},(_,i)=>i));
+    const cells=shuffle(Array.from({length:TOTAL_CELLS},(_,i)=>i));
     let removed=0;
     for(const idx of cells){
       if(removed>=target) break;
-      const r=Math.floor(idx/9), c=idx%9;
+      const r=Math.floor(idx/GRID_SIZE), c=idx%GRID_SIZE;
       const backup=board[r][c];
       board[r][c]=0;
       if(countSolutions(board,2)!==1) board[r][c]=backup;
@@ -405,9 +413,9 @@
   }
 
   function jumpToNextEmpty(){
-    const startIndex=selected?selected.r*9+selected.c:-1;
-    for(let offset=1;offset<=81;offset++){
-      const idx=(startIndex+offset+81)%81;
+    const startIndex=selected?selected.r*GRID_SIZE+selected.c:-1;
+    for(let offset=1;offset<=TOTAL_CELLS;offset++){
+      const idx=(startIndex+offset+TOTAL_CELLS)%TOTAL_CELLS;
       const r=Math.floor(idx/9), c=idx%9;
       if(grid[r][c]===0&&startingGrid[r][c]===0){
         selected={r,c}; render(); saveGame();
@@ -439,7 +447,7 @@
   function checkBoard(){
     render();
     if(isSolved()) setStatus('Everything checks out. Puzzle solved.');
-    else if(countErrors()===0) setStatus(`No conflicts found. ${81-countFilled()} cells still empty.`);
+    else if(countErrors()===0) setStatus(`No conflicts found. ${TOTAL_CELLS-countFilled()} cells still empty.`);
     else setStatus(`${countErrors()} conflicting cell(s) found. Red marks the exact conflicting cells.`);
   }
 
