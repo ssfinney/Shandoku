@@ -143,12 +143,13 @@
 
   // ── UI updates ────────────────────────────────────────────────────────────
 
+  const MIN_SPLASH_MS=800;
   const splashShownAt=Date.now();
   function hideSplash(){
     const splash=document.getElementById('splash');
     if(!splash) return;
     const elapsed=Date.now()-splashShownAt;
-    const delay=Math.max(0,800-elapsed);
+    const delay=Math.max(0,MIN_SPLASH_MS-elapsed);
     setTimeout(()=>{
       splash.classList.add('fade-out');
       splash.addEventListener('transitionend',()=>splash.remove(),{once:true});
@@ -602,11 +603,10 @@
     if(raw){
       try{
         const saved=JSON.parse(raw);
-        if(confirm('Resume your saved game?')){
-          applyLoadedData(saved);
-        } else {
-          newGame();
-        }
+        const modal=document.getElementById('resumeModal');
+        modal.hidden=false;
+        document.getElementById('resumeYesBtn').onclick=()=>{ modal.hidden=true; applyLoadedData(saved); };
+        document.getElementById('resumeNoBtn').onclick=()=>{ modal.hidden=true; newGame(); };
       } catch(e){ console.error('Failed to restore saved game:',e); newGame(); }
     } else {
       newGame();
