@@ -296,6 +296,7 @@
 
   function applyTheme(theme){
     document.body.classList.toggle('light',theme==='light');
+    document.documentElement.style.background=theme==='light'?'#eef2ff':'#0b1220';
     themeBtn.textContent=`Theme: ${theme==='light'?'Light':'Dark'}`;
     document.querySelector('meta[name="theme-color"]').setAttribute('content',theme==='light'?'#f8fafc':'#111827');
     localStorage.setItem(THEME_KEY,theme);
