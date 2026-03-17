@@ -331,6 +331,18 @@ button:active,select:active{transform:scale(.985)}
   grid-template-columns:1fr 1fr;
   gap:8px;
 }
+.resume-modal{
+  position:fixed;inset:0;z-index:10000;
+  display:flex;align-items:center;justify-content:center;padding:20px;
+}
+.resume-modal[hidden]{display:none}
+.resume-card{
+  background:var(--panel);border-radius:16px;
+  padding:24px 20px;max-width:280px;width:100%;
+  text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.45);
+}
+.resume-msg{margin:0 0 20px;font-size:1rem;color:var(--text)}
+.resume-btns{display:flex;flex-direction:column;gap:10px}
 
 /* ── Splash screen ───────────────────────────────────────────────────────── */
 .splash{

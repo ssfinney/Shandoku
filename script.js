@@ -143,11 +143,17 @@
 
   // ── UI updates ────────────────────────────────────────────────────────────
 
+  const MIN_SPLASH_MS=800;
+  const splashShownAt=Date.now();
   function hideSplash(){
     const splash=document.getElementById('splash');
     if(!splash) return;
-    splash.classList.add('fade-out');
-    splash.addEventListener('transitionend',()=>splash.remove(),{once:true});
+    const elapsed=Date.now()-splashShownAt;
+    const delay=Math.max(0,MIN_SPLASH_MS-elapsed);
+    setTimeout(()=>{
+      splash.classList.add('fade-out');
+      splash.addEventListener('transitionend',()=>splash.remove(),{once:true});
+    },delay);
   }
 
   function setStatus(msg){ statusEl.textContent=msg; }
@@ -291,6 +297,7 @@
 
   function applyTheme(theme){
     document.body.classList.toggle('light',theme==='light');
+    document.documentElement.style.background=theme==='light'?'#eef2ff':'#0b1220';
     themeBtn.textContent=`Theme: ${theme==='light'?'Light':'Dark'}`;
     document.querySelector('meta[name="theme-color"]').setAttribute('content',theme==='light'?'#f8fafc':'#111827');
     localStorage.setItem(THEME_KEY,theme);
@@ -590,17 +597,19 @@
   applyTheme(localStorage.getItem(THEME_KEY)||'dark');
   buildDigitPad();
 
-  const raw=localStorage.getItem(STORAGE_KEY);
-  if(raw){
-    try{
-      const saved=JSON.parse(raw);
-      if(confirm('Resume your saved game?')){
-        applyLoadedData(saved);
-      } else {
-        newGame();
-      }
-    } catch(e){ console.error('Failed to restore saved game:',e); newGame(); }
-  } else {
-    newGame();
-  }
+  // Defer game init until after the first paint so the splash animates.
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    const raw=localStorage.getItem(STORAGE_KEY);
+    if(raw){
+      try{
+        const saved=JSON.parse(raw);
+        const modal=document.getElementById('resumeModal');
+        modal.hidden=false;
+        document.getElementById('resumeYesBtn').onclick=()=>{ modal.hidden=true; applyLoadedData(saved); };
+        document.getElementById('resumeNoBtn').onclick=()=>{ modal.hidden=true; newGame(); };
+      } catch(e){ console.error('Failed to restore saved game:',e); newGame(); }
+    } else {
+      newGame();
+    }
+  }));
 })();
