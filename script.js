@@ -597,8 +597,8 @@
   applyTheme(localStorage.getItem(THEME_KEY)||'dark');
   buildDigitPad();
 
-  // Defer game init until after the first paint so the splash animates.
-  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+  // Defer game init so the splash animation plays before the modal appears.
+  setTimeout(()=>{
     const raw=localStorage.getItem(STORAGE_KEY);
     if(raw){
       try{
@@ -611,5 +611,5 @@
     } else {
       newGame();
     }
-  }));
+  },1200);
 })();
