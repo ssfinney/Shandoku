@@ -5,6 +5,9 @@
   const TOTAL_CELLS = GRID_SIZE * GRID_SIZE;
   const HISTORY_LIMIT = 200;
   const RIFT_COOLDOWN_MS = 12000;
+  const RIFT_STATUS_DELAY_MS = 950;
+  const RIFT_STATUS_DELAY_REDUCED_MOTION_MS = 500;
+  const RIFT_EVALUATE_DEBOUNCE_MS = 140;
 
   const boardEl = document.getElementById('board');
   const statusEl = document.getElementById('status');
@@ -41,6 +44,7 @@
   let boardWasSolvable = true;
   let statusSequenceId = 0;
   let interactionLocked = false;
+  let riftEvalTimer = null;
   let riftState = {
     active:false,
     sequenceRunning:false,
@@ -258,6 +262,15 @@
     boardShellEl.classList.toggle('rift-locked',locked);
   }
 
+  function canInteractWithBoard(options={}){
+    if(interactionLocked) return false;
+    if(riftState.active){
+      if(options.showStatus!==false) setStatus('Resolve the rift first.');
+      return false;
+    }
+    return true;
+  }
+
   function snapshotCurrentState(){
     return {
       grid:cloneGrid(grid),
@@ -279,6 +292,7 @@
 
   function clearRiftVisualState(){
     statusSequenceId++;
+    if(riftEvalTimer){ clearTimeout(riftEvalTimer); riftEvalTimer=null; }
     riftState.active=false;
     riftState.sequenceRunning=false;
     riftState.nodes=[];
@@ -310,7 +324,7 @@
     for(const line of lines){
       if(id!==statusSequenceId) return false;
       setStatus(line);
-      await new Promise(resolve=>setTimeout(resolve,fast?500:950));
+      await new Promise(resolve=>setTimeout(resolve,fast?RIFT_STATUS_DELAY_REDUCED_MOTION_MS:RIFT_STATUS_DELAY_MS));
     }
     return id===statusSequenceId;
   }
@@ -361,6 +375,31 @@
     if(boardWasSolvable){
       boardWasSolvable=false;
       triggerRiftEvent();
+    }
+  }
+
+  function scheduleRiftEvaluation(origin='player-move'){
+    if(riftEvalTimer) clearTimeout(riftEvalTimer);
+    riftEvalTimer=setTimeout(()=>{
+      riftEvalTimer=null;
+      evaluateRiftTrigger(origin);
+    },RIFT_EVALUATE_DEBOUNCE_MS);
+  }
+
+  function restoreRiftStateFromSave(data){
+    const savedRiftState=data.riftState||{};
+    const isRiftActive=!!savedRiftState.active;
+    riftState={
+      active:isRiftActive,
+      sequenceRunning:false,
+      nodes:isRiftActive?(savedRiftState.nodes||[]).slice(0,3):[],
+      hasTriggered:!!savedRiftState.hasTriggered,
+      cooldownUntil:Number(savedRiftState.cooldownUntil)||0,
+      copyKey:savedRiftState.copyKey||'pattern'
+    };
+    if(isRiftActive){
+      boardShellEl.classList.add('rift-active');
+      statusEl.classList.add('rift-status');
     }
   }
 
@@ -527,20 +566,7 @@
     } else {
       lastSolvableSnapshot=null;
     }
-    const savedRiftState=data.riftState||{};
-    const isRiftActive=!!savedRiftState.active;
-    riftState={
-      active:isRiftActive,
-      sequenceRunning:false,
-      nodes:isRiftActive?(savedRiftState.nodes||[]).slice(0,3):[],
-      hasTriggered:!!savedRiftState.hasTriggered,
-      cooldownUntil:Number(savedRiftState.cooldownUntil)||0,
-      copyKey:savedRiftState.copyKey||'pattern'
-    };
-    if(isRiftActive){
-      boardShellEl.classList.add('rift-active');
-      statusEl.classList.add('rift-status');
-    }
+    restoreRiftStateFromSave(data);
     render(); startTimer(); hideSplash();
     setStatus(riftState.active?'Rift node found. Tap the marked cell.':'Resumed saved game.');
     boardWasSolvable=hasAnySolution(grid);
@@ -643,8 +669,7 @@
   }
 
   function placeNumber(n){
-    if(interactionLocked) return;
-    if(riftState.active){ setStatus('Resolve the rift first.'); return; }
+    if(!canInteractWithBoard()) return;
     if(!selected) return;
     const {r,c}=selected;
     if(startingGrid[r][c]!==0){ setStatus('That cell is a starting number.'); return; }
@@ -667,12 +692,11 @@
       vibrate(10);
     }
     if(isSolved()){ setStatus('Solved. Nice work.'); celebrate(); }
-    evaluateRiftTrigger('player-move');
+    scheduleRiftEvaluation('player-move');
   }
 
   function clearSelected(){
-    if(interactionLocked) return;
-    if(riftState.active){ setStatus('Resolve the rift first.'); return; }
+    if(!canInteractWithBoard()) return;
     if(!selected) return;
     const {r,c}=selected;
     if(startingGrid[r][c]!==0){ setStatus('Starting number — this cell cannot be changed.'); return; }
@@ -680,12 +704,11 @@
     grid[r][c]=0; notes[r][c].clear();
     render(); saveGame();
     setStatus('Cell cleared.');
-    evaluateRiftTrigger('player-move');
+    scheduleRiftEvaluation('player-move');
   }
 
   function jumpToNextEmpty(){
-    if(interactionLocked) return false;
-    if(riftState.active){ setStatus('Resolve the rift first.'); return false; }
+    if(!canInteractWithBoard()) return false;
     const startIndex=selected?selected.r*GRID_SIZE+selected.c:-1;
     for(let offset=1;offset<=TOTAL_CELLS;offset++){
       const idx=(startIndex+offset+TOTAL_CELLS)%TOTAL_CELLS;
@@ -701,8 +724,7 @@
   }
 
   function giveHint(){
-    if(interactionLocked) return;
-    if(riftState.active){ setStatus('Resolve the rift first.'); return; }
+    if(!canInteractWithBoard()) return;
     let best=null;
     outer: for(let r=0;r<GRID_SIZE;r++){
       for(let c=0;c<GRID_SIZE;c++){
@@ -720,8 +742,7 @@
   }
 
   function checkBoard(){
-    if(interactionLocked) return;
-    if(riftState.active){ setStatus('Resolve the rift first.'); return; }
+    if(!canInteractWithBoard()) return;
     render();
     if(isSolved()) setStatus('Everything checks out. Puzzle solved.');
     else if(countErrors()===0) setStatus(`No conflicts found. ${TOTAL_CELLS-countFilled()} cells still empty.`);
@@ -729,8 +750,7 @@
   }
 
   function solveBoard(){
-    if(interactionLocked) return;
-    if(riftState.active){ setStatus('Resolve the rift first.'); return; }
+    if(!canInteractWithBoard()) return;
     pushHistory();
     const b=cloneGrid(grid);
     function solve(){
@@ -762,8 +782,7 @@
   }
 
   function moveSelection(dr, dc){
-    if(interactionLocked) return;
-    if(riftState.active) return;
+    if(!canInteractWithBoard({showStatus:false})) return;
     if(!selected) selected={r:0,c:0};
     else selected={r:(selected.r+dr+GRID_SIZE)%GRID_SIZE, c:(selected.c+dc+GRID_SIZE)%GRID_SIZE};
     render(); saveGame();
