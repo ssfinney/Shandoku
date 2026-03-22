@@ -4,6 +4,7 @@
   const GRID_SIZE = 9;
   const TOTAL_CELLS = GRID_SIZE * GRID_SIZE;
   const HISTORY_LIMIT = 200;
+  const RIFT_COOLDOWN_MS = 12000;
 
   const boardEl = document.getElementById('board');
   const statusEl = document.getElementById('status');
@@ -14,6 +15,11 @@
   const notesModeBtn = document.getElementById('notesModeBtn');
   const autoNotesBtn = document.getElementById('autoNotesBtn');
   const themeBtn = document.getElementById('themeBtn');
+  const boardShellEl = document.querySelector('.board-shell');
+  const riftModal = document.getElementById('riftModal');
+  const riftBodyEl = document.getElementById('riftBody');
+  const riftBackdrop = document.getElementById('riftBackdrop');
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
   let selected = null;
   let notesMode = false;
@@ -27,6 +33,35 @@
   let startingGrid = null;
   let grid = null;
   let notes = null;
+  let lastSolvableSnapshot = null;
+  let boardWasSolvable = true;
+  let statusSequenceId = 0;
+  let interactionLocked = false;
+  let riftState = {
+    active:false,
+    sequenceRunning:false,
+    nodes:[],
+    hasTriggered:false,
+    cooldownUntil:0,
+    copyKey:'pattern'
+  };
+  const riftCopySets = {
+    pattern:{
+      title:'A seam in the pattern',
+      lines:['This puzzle cannot exist.','Looking for a way through…','Something opened.'],
+      fragment:'Not every wrong turn is failure. Some of them are doors.'
+    },
+    geometry:{
+      title:'The shape bent',
+      lines:['The grid lost coherence.','Re-threading the path…','A fracture node remains.'],
+      fragment:'You pushed the puzzle past logic, and it answered.'
+    },
+    lantern:{
+      title:'Between answers',
+      lines:['The pattern broke cleanly.','Listening for a softer route…','A quiet door is available.'],
+      fragment:'Some detours are where the gift is waiting.'
+    }
+  };
 
   // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -77,6 +112,66 @@
 
   function isSolved(){ return countFilled()===TOTAL_CELLS && countErrors()===0; }
 
+  function hasImmediateContradiction(board){
+    for(let r=0;r<GRID_SIZE;r++){
+      const seen=new Set();
+      for(let c=0;c<GRID_SIZE;c++){
+        const v=board[r][c];
+        if(!v) continue;
+        if(seen.has(v)) return true;
+        seen.add(v);
+      }
+    }
+    for(let c=0;c<GRID_SIZE;c++){
+      const seen=new Set();
+      for(let r=0;r<GRID_SIZE;r++){
+        const v=board[r][c];
+        if(!v) continue;
+        if(seen.has(v)) return true;
+        seen.add(v);
+      }
+    }
+    for(let br=0;br<GRID_SIZE;br+=3){
+      for(let bc=0;bc<GRID_SIZE;bc+=3){
+        const seen=new Set();
+        for(let r=br;r<br+3;r++){
+          for(let c=bc;c<bc+3;c++){
+            const v=board[r][c];
+            if(!v) continue;
+            if(seen.has(v)) return true;
+            seen.add(v);
+          }
+        }
+      }
+    }
+    return false;
+  }
+
+  function hasAnySolution(board){
+    if(hasImmediateContradiction(board)) return false;
+    const b=cloneGrid(board);
+    function search(){
+      let best=null;
+      for(let r=0;r<GRID_SIZE;r++){
+        for(let c=0;c<GRID_SIZE;c++){
+          if(b[r][c]===0){
+            const cand=candidatesForBoard(b,r,c);
+            if(cand.length===0) return false;
+            if(!best||cand.length<best.cand.length) best={r,c,cand};
+          }
+        }
+      }
+      if(!best) return true;
+      for(const n of best.cand){
+        b[best.r][best.c]=n;
+        if(search()) return true;
+        b[best.r][best.c]=0;
+      }
+      return false;
+    }
+    return search();
+  }
+
   function isRelated(r, c){
     if(!selected || (selected.r===r && selected.c===c)) return false;
     return selected.r===r || selected.c===c ||
@@ -123,8 +218,10 @@
     grid=cloneGrid(snap.grid); notes=cloneNotes(snap.notes);
     selected=snap.selected?{...snap.selected}:null;
     elapsed=snap.elapsed; notesMode=snap.notesMode; autoCleanup=snap.autoCleanup;
-    document.querySelector('.board-shell').classList.remove('victory-glow');
+    boardShellEl.classList.remove('victory-glow');
+    clearRiftVisualState();
     render(); updateStats(); updateToggles(); saveGame();
+    captureLastSolvableSnapshot();
   }
 
   function undo(){
@@ -132,6 +229,7 @@
     future.push({grid:cloneGrid(grid),notes:cloneNotes(notes),selected:selected?{...selected}:null,elapsed,notesMode,autoCleanup});
     restoreSnapshot(history.pop());
     setStatus('Undid last move.');
+    boardWasSolvable=hasAnySolution(grid);
   }
 
   function redo(){
@@ -139,6 +237,7 @@
     history.push({grid:cloneGrid(grid),notes:cloneNotes(notes),selected:selected?{...selected}:null,elapsed,notesMode,autoCleanup});
     restoreSnapshot(future.pop());
     setStatus('Redid move.');
+    boardWasSolvable=hasAnySolution(grid);
   }
 
   // ── UI updates ────────────────────────────────────────────────────────────
@@ -157,6 +256,116 @@
   }
 
   function setStatus(msg){ statusEl.textContent=msg; }
+
+  function setInteractionLocked(locked){
+    interactionLocked=locked;
+    boardShellEl.classList.toggle('rift-locked',locked);
+  }
+
+  function snapshotCurrentState(){
+    return {
+      grid:cloneGrid(grid),
+      notes:cloneNotes(notes),
+      selected:selected?{...selected}:null,
+      elapsed, notesMode, autoCleanup
+    };
+  }
+
+  function captureLastSolvableSnapshot(){
+    if(hasAnySolution(grid)){
+      lastSolvableSnapshot=snapshotCurrentState();
+      boardWasSolvable=true;
+      return true;
+    }
+    boardWasSolvable=false;
+    return false;
+  }
+
+  function clearRiftVisualState(){
+    riftState.active=false;
+    riftState.sequenceRunning=false;
+    riftState.nodes=[];
+    boardShellEl.classList.remove('rift-active','rift-glitch');
+    statusEl.classList.remove('rift-status');
+    riftModal.hidden=true;
+    setInteractionLocked(false);
+  }
+
+  function getRiftNodes(){
+    const conflicted=[];
+    for(let r=0;r<GRID_SIZE;r++){
+      for(let c=0;c<GRID_SIZE;c++){
+        if(hasConflict(r,c)) conflicted.push({r,c});
+      }
+    }
+    if(conflicted.length) return conflicted.slice(0,Math.min(3,conflicted.length));
+    for(let r=0;r<GRID_SIZE;r++){
+      for(let c=0;c<GRID_SIZE;c++){
+        if(grid[r][c]===0) return [{r,c}];
+      }
+    }
+    return [{r:4,c:4}];
+  }
+
+  async function runStatusSequence(lines){
+    const id=++statusSequenceId;
+    const fast=reducedMotion.matches;
+    for(const line of lines){
+      if(id!==statusSequenceId) return false;
+      setStatus(line);
+      await new Promise(resolve=>setTimeout(resolve,fast?500:950));
+    }
+    return id===statusSequenceId;
+  }
+
+  function openRiftModal(){
+    const copy=riftCopySets[riftState.copyKey]||riftCopySets.pattern;
+    riftBodyEl.textContent=copy.fragment;
+    document.getElementById('riftTitle').textContent=copy.title;
+    riftModal.hidden=false;
+  }
+
+  async function triggerRiftEvent(){
+    if(riftState.active || riftState.sequenceRunning) return;
+    riftState.sequenceRunning=true;
+    riftState.hasTriggered=true;
+    riftState.cooldownUntil=Date.now()+RIFT_COOLDOWN_MS;
+    setInteractionLocked(true);
+    boardShellEl.classList.add('rift-active','rift-glitch');
+    statusEl.classList.add('rift-status');
+    vibrate([15,55,15]);
+    render();
+    const copy=riftCopySets[riftState.copyKey]||riftCopySets.pattern;
+    const complete=await runStatusSequence(copy.lines);
+    boardShellEl.classList.remove('rift-glitch');
+    if(!complete){
+      riftState.sequenceRunning=false;
+      return;
+    }
+    riftState.nodes=getRiftNodes();
+    riftState.active=true;
+    riftState.sequenceRunning=false;
+    setInteractionLocked(false);
+    render();
+    setStatus('Rift node found. Tap the marked cell.');
+    saveGame();
+  }
+
+  function evaluateRiftTrigger(origin='system'){
+    if(origin!=='player-move') return;
+    if(riftState.active||riftState.sequenceRunning) return;
+    if(Date.now()<riftState.cooldownUntil) return;
+    const solvable=hasAnySolution(grid);
+    if(solvable){
+      boardWasSolvable=true;
+      captureLastSolvableSnapshot();
+      return;
+    }
+    if(boardWasSolvable){
+      boardWasSolvable=false;
+      triggerRiftEvent();
+    }
+  }
 
   function updateStats(){
     timeStat.textContent=formatTime(elapsed);
@@ -238,10 +447,16 @@
         if(isRelated(r,c)) cell.classList.add('related');
         if(selected&&selected.r===r&&selected.c===c) cell.classList.add('selected');
         if(hasConflict(r,c)) cell.classList.add('error');
-        cell.setAttribute('aria-label',`Row ${r+1} Column ${c+1}${grid[r][c]?`, value ${grid[r][c]}`:', empty'}`);
+        const isRiftNode=riftState.active && riftState.nodes.some(node=>node.r===r&&node.c===c);
+        if(isRiftNode) cell.classList.add('rift-node');
+        cell.setAttribute('aria-label',`Row ${r+1} Column ${c+1}${grid[r][c]?`, value ${grid[r][c]}`:', empty'}${isRiftNode?', rift node':''}`);
         if(grid[r][c]) cell.textContent=grid[r][c];
         else if(notes[r][c].size) cell.appendChild(makeNotesNode(r,c));
-        cell.addEventListener('click',()=>{ selected={r,c}; render(); saveGame(); });
+        cell.addEventListener('click',()=>{
+          if(interactionLocked) return;
+          if(isRiftNode){ openRiftModal(); return; }
+          selected={r,c}; render(); saveGame();
+        });
         blocks[Math.floor(r/3)*3+Math.floor(c/3)].appendChild(cell);
       }
     }
@@ -264,11 +479,23 @@
   // ── Persistence ───────────────────────────────────────────────────────────
 
   function saveGame(){
+    const encodedLastSolvable=lastSolvableSnapshot?{
+      ...lastSolvableSnapshot,
+      notes:lastSolvableSnapshot.notes.map(row=>row.map(s=>[...s]))
+    }:null;
     const payload={
       grid, startingGrid,
       notes:notes.map(row=>row.map(s=>[...s])),
       selected, elapsed, notesMode, autoCleanup,
-      difficulty:difficultyEl.value
+      difficulty:difficultyEl.value,
+      lastSolvableSnapshot:encodedLastSolvable,
+      riftState:{
+        active:riftState.active,
+        nodes:riftState.nodes,
+        hasTriggered:riftState.hasTriggered,
+        cooldownUntil:riftState.cooldownUntil,
+        copyKey:riftState.copyKey
+      }
     };
     try{
       localStorage.setItem(STORAGE_KEY,JSON.stringify(payload));
@@ -289,8 +516,33 @@
     autoCleanup=data.autoCleanup!==false;
     difficultyEl.value=data.difficulty||'medium';
     history=[]; future=[];
-    document.querySelector('.board-shell').classList.remove('victory-glow');
-    render(); startTimer(); hideSplash(); setStatus('Resumed saved game.');
+    boardShellEl.classList.remove('victory-glow');
+    clearRiftVisualState();
+    if(data.lastSolvableSnapshot && data.lastSolvableSnapshot.grid && data.lastSolvableSnapshot.notes){
+      lastSolvableSnapshot={
+        ...data.lastSolvableSnapshot,
+        grid:cloneGrid(data.lastSolvableSnapshot.grid),
+        notes:data.lastSolvableSnapshot.notes.map(row=>row.map(arr=>new Set(arr)))
+      };
+    } else {
+      lastSolvableSnapshot=null;
+    }
+    if(data.riftState&&data.riftState.active){
+      riftState.active=true;
+      riftState.sequenceRunning=false;
+      riftState.nodes=(data.riftState.nodes||[]).slice(0,3);
+      riftState.hasTriggered=!!data.riftState.hasTriggered;
+      riftState.cooldownUntil=Number(data.riftState.cooldownUntil)||0;
+      riftState.copyKey=data.riftState.copyKey||'pattern';
+      boardShellEl.classList.add('rift-active');
+      statusEl.classList.add('rift-status');
+    } else {
+      riftState={active:false,sequenceRunning:false,nodes:[],hasTriggered:false,cooldownUntil:0,copyKey:'pattern'};
+    }
+    render(); startTimer(); hideSplash();
+    setStatus(riftState.active?'Rift node found. Tap the marked cell.':'Resumed saved game.');
+    boardWasSolvable=hasAnySolution(grid);
+    if(!lastSolvableSnapshot && boardWasSolvable) captureLastSolvableSnapshot();
   }
 
   // ── Theme ─────────────────────────────────────────────────────────────────
@@ -380,12 +632,16 @@
     notes=Array.from({length:GRID_SIZE},()=>Array.from({length:GRID_SIZE},()=>new Set()));
     fillNotesAll();
     selected=null; elapsed=0; history=[]; future=[];
-    document.querySelector('.board-shell').classList.remove('victory-glow');
+    boardShellEl.classList.remove('victory-glow');
+    clearRiftVisualState();
+    riftState={active:false,sequenceRunning:false,nodes:[],hasTriggered:false,cooldownUntil:0,copyKey:'pattern'};
     render(); startTimer(); saveGame(); hideSplash();
+    captureLastSolvableSnapshot();
     setStatus(`New ${difficultyEl.value} Shandoku game loaded.`);
   }
 
   function placeNumber(n){
+    if(interactionLocked) return;
     if(!selected) return;
     const {r,c}=selected;
     if(startingGrid[r][c]!==0){ setStatus('That cell is a starting number.'); return; }
@@ -408,9 +664,11 @@
       vibrate(10);
     }
     if(isSolved()){ setStatus('Solved. Nice work.'); celebrate(); }
+    evaluateRiftTrigger('player-move');
   }
 
   function clearSelected(){
+    if(interactionLocked) return;
     if(!selected) return;
     const {r,c}=selected;
     if(startingGrid[r][c]!==0){ setStatus('Starting number — this cell cannot be changed.'); return; }
@@ -418,9 +676,11 @@
     grid[r][c]=0; notes[r][c].clear();
     render(); saveGame();
     setStatus('Cell cleared.');
+    evaluateRiftTrigger('player-move');
   }
 
   function jumpToNextEmpty(){
+    if(interactionLocked) return false;
     const startIndex=selected?selected.r*GRID_SIZE+selected.c:-1;
     for(let offset=1;offset<=TOTAL_CELLS;offset++){
       const idx=(startIndex+offset+TOTAL_CELLS)%TOTAL_CELLS;
@@ -436,6 +696,7 @@
   }
 
   function giveHint(){
+    if(interactionLocked) return;
     let best=null;
     outer: for(let r=0;r<GRID_SIZE;r++){
       for(let c=0;c<GRID_SIZE;c++){
@@ -453,6 +714,7 @@
   }
 
   function checkBoard(){
+    if(interactionLocked) return;
     render();
     if(isSolved()) setStatus('Everything checks out. Puzzle solved.');
     else if(countErrors()===0) setStatus(`No conflicts found. ${TOTAL_CELLS-countFilled()} cells still empty.`);
@@ -460,6 +722,7 @@
   }
 
   function solveBoard(){
+    if(interactionLocked) return;
     pushHistory();
     const b=cloneGrid(grid);
     function solve(){
@@ -487,12 +750,30 @@
     render(); saveGame();
     if(ok) setStatus('Solved.');
     else setStatus('Could not solve — fix the conflicts first.');
+    captureLastSolvableSnapshot();
   }
 
   function moveSelection(dr, dc){
+    if(interactionLocked) return;
     if(!selected) selected={r:0,c:0};
     else selected={r:(selected.r+dr+GRID_SIZE)%GRID_SIZE, c:(selected.c+dc+GRID_SIZE)%GRID_SIZE};
     render(); saveGame();
+  }
+
+  function restoreLastSolvableState(){
+    if(!lastSolvableSnapshot){
+      setStatus('No solvable snapshot available yet.');
+      return;
+    }
+    restoreSnapshot(lastSolvableSnapshot);
+    boardWasSolvable=true;
+    setStatus('Returned to the last solvable state.');
+  }
+
+  function closeRift(returnMessage='Rift closed.'){
+    clearRiftVisualState();
+    setStatus(returnMessage);
+    saveGame();
   }
 
   // ── Build digit pad ───────────────────────────────────────────────────────
@@ -516,11 +797,13 @@
   // ── Events ────────────────────────────────────────────────────────────────
 
   boardEl.addEventListener('touchstart',e=>{
+    if(interactionLocked) return;
     const t=e.changedTouches&&e.changedTouches[0];
     if(t) touchStart={x:t.clientX,y:t.clientY};
   },{passive:true});
 
   boardEl.addEventListener('touchend',e=>{
+    if(interactionLocked) return;
     if(!touchStart) return;
     const t=e.changedTouches&&e.changedTouches[0];
     if(!t) return;
@@ -559,6 +842,17 @@
 
   themeBtn.onclick=toggleTheme;
 
+  riftBackdrop.onclick=()=>closeRift('You stepped back from the rift.');
+  document.getElementById('riftReturnBtn').onclick=()=>closeRift('You returned to the puzzle.');
+  document.getElementById('riftRestoreBtn').onclick=()=>{
+    restoreLastSolvableState();
+    closeRift('Restored to the last solvable state.');
+  };
+  document.getElementById('riftFreshBtn').onclick=()=>{
+    closeRift('Starting fresh.');
+    newGame();
+  };
+
   // Add to Home Screen
   let deferredInstallPrompt=null;
   const installBtn=document.getElementById('installBtn');
@@ -580,6 +874,7 @@
   });
 
   document.addEventListener('keydown',e=>{
+    if(interactionLocked && e.key!=='Escape') return;
     if(e.key>='1'&&e.key<='9') placeNumber(Number(e.key));
     else if(['Backspace','Delete','0'].includes(e.key)) clearSelected();
     else if(e.key==='ArrowUp') moveSelection(-1,0);
