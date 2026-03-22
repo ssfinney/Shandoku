@@ -537,7 +537,7 @@
       boardShellEl.classList.add('rift-active');
       statusEl.classList.add('rift-status');
     } else {
-      riftState={active:false,sequenceRunning:false,nodes:[],hasTriggered:false,cooldownUntil:0,copyKey:'pattern'};
+      riftState={...initialRiftState}; // Assuming initialRiftState is defined as a constant
     }
     render(); startTimer(); hideSplash();
     setStatus(riftState.active?'Rift node found. Tap the marked cell.':'Resumed saved game.');
