@@ -9,6 +9,7 @@
   const RIFT_STATUS_DELAY_REDUCED_MOTION_MS = 500;
   const RIFT_EVALUATE_DEBOUNCE_MS = 140;
   const RIFT_NON_CONFLICT_CHECK_INTERVAL = 5;
+  const TEST_MODE = window.location.search.includes('e2e=1');
 
   const boardEl = document.getElementById('board');
   const statusEl = document.getElementById('status');
@@ -255,7 +256,7 @@
 
   // ── UI updates ────────────────────────────────────────────────────────────
 
-  const MIN_SPLASH_MS=800;
+  const MIN_SPLASH_MS=TEST_MODE?0:800;
   const splashShownAt=Date.now();
   function hideSplash(){
     const splash=document.getElementById('splash');
@@ -833,6 +834,90 @@
     saveGame();
   }
 
+  function normalizeTestBoard(board, fallbackValue=0){
+    if(!Array.isArray(board)||board.length!==GRID_SIZE){
+      return Array.from({length:GRID_SIZE},()=>Array.from({length:GRID_SIZE},()=>fallbackValue));
+    }
+    return board.map(row=>{
+      if(!Array.isArray(row)||row.length!==GRID_SIZE) return Array.from({length:GRID_SIZE},()=>fallbackValue);
+      return row.map(value=>{
+        const n=Number(value);
+        if(Number.isInteger(n)&&n>=0&&n<=9) return n;
+        return fallbackValue;
+      });
+    });
+  }
+
+  function applyTestBoardState(payload={}){
+    const nextGrid=normalizeTestBoard(payload.grid,0);
+    const nextStartingGrid=normalizeTestBoard(payload.startingGrid,0);
+    grid=cloneGrid(nextGrid);
+    startingGrid=cloneGrid(nextStartingGrid);
+    notes=Array.from({length:GRID_SIZE},()=>Array.from({length:GRID_SIZE},()=>new Set()));
+    selected=(payload.selected&&Number.isInteger(payload.selected.r)&&Number.isInteger(payload.selected.c))
+      ?{r:Math.max(0,Math.min(8,payload.selected.r)),c:Math.max(0,Math.min(8,payload.selected.c))}
+      :null;
+    elapsed=normalizeElapsed(payload.elapsed);
+    notesMode=!!payload.notesMode;
+    autoCleanup=payload.autoCleanup!==false;
+    history=[]; future=[];
+    boardShellEl.classList.remove('victory-glow');
+    clearRiftVisualState();
+    riftState={active:false,sequenceRunning:false,nodes:[],hasTriggered:false,cooldownUntil:0,copyKey:'pattern'};
+    movesSinceSolvabilityCheck=0;
+    captureLastSolvableSnapshot();
+    render();
+    saveGame();
+  }
+
+  function exposeTestApi(){
+    window.__shandokuTest={
+      resetStorage(){
+        localStorage.removeItem(STORAGE_KEY);
+      },
+      setBoardState(payload){
+        applyTestBoardState(payload);
+      },
+      getState(){
+        return {
+          grid:cloneGrid(grid),
+          startingGrid:cloneGrid(startingGrid),
+          selected:selected?{...selected}:null,
+          notesMode,
+          autoCleanup,
+          errorCount:countErrors(),
+          status:statusEl.textContent
+        };
+      },
+      selectCell(r,c){
+        selected={r:Math.max(0,Math.min(8,r)),c:Math.max(0,Math.min(8,c))};
+        render();
+        saveGame();
+      },
+      placeNumber(n){
+        placeNumber(n);
+      },
+      newGame(){
+        newGame();
+      },
+      forceRift(payload={}){
+        const r=Number.isInteger(payload.r)?Math.max(0,Math.min(8,payload.r)):4;
+        const c=Number.isInteger(payload.c)?Math.max(0,Math.min(8,payload.c)):4;
+        clearRiftVisualState();
+        riftState.active=true;
+        riftState.sequenceRunning=false;
+        riftState.nodes=[{r,c}];
+        riftState.hasTriggered=true;
+        riftState.cooldownUntil=Date.now()+RIFT_COOLDOWN_MS;
+        boardShellEl.classList.add('rift-active');
+        statusEl.classList.add('rift-status');
+        render();
+        setStatus('Rift node found. Tap the marked cell.');
+        saveGame();
+      }
+    };
+  }
+
   // ── Build digit pad ───────────────────────────────────────────────────────
 
   function buildDigitPad(){
@@ -949,6 +1034,7 @@
 
   applyTheme(localStorage.getItem(THEME_KEY)||'dark');
   buildDigitPad();
+  if(TEST_MODE) exposeTestApi();
 
   // Defer game init until after the first paint so the splash animates.
   requestAnimationFrame(()=>requestAnimationFrame(()=>{

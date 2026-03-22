@@ -1,4 +1,4 @@
-const CACHE_NAME = 'shandoku-wife-edition-v5';
+const CACHE_NAME = 'shandoku-wife-edition-v6';
 const STATIC_ASSETS = [
   './index.html',
   './style.css',
