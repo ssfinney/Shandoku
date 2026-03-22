@@ -17,8 +17,12 @@
   const themeBtn = document.getElementById('themeBtn');
   const boardShellEl = document.querySelector('.board-shell');
   const riftModal = document.getElementById('riftModal');
+  const riftTitleEl = document.getElementById('riftTitle');
   const riftBodyEl = document.getElementById('riftBody');
   const riftBackdrop = document.getElementById('riftBackdrop');
+  const riftReturnBtn = document.getElementById('riftReturnBtn');
+  const riftRestoreBtn = document.getElementById('riftRestoreBtn');
+  const riftFreshBtn = document.getElementById('riftFreshBtn');
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
   let selected = null;
@@ -290,7 +294,7 @@
         if(hasConflict(r,c)) conflicted.push({r,c});
       }
     }
-    if(conflicted.length) return conflicted.slice(0,Math.min(3,conflicted.length));
+    if(conflicted.length) return conflicted.slice(0,3);
     for(let r=0;r<GRID_SIZE;r++){
       for(let c=0;c<GRID_SIZE;c++){
         if(grid[r][c]===0) return [{r,c}];
@@ -313,7 +317,7 @@
   function openRiftModal(){
     const copy=riftCopySets[riftState.copyKey]||riftCopySets.pattern;
     riftBodyEl.textContent=copy.fragment;
-    document.getElementById('riftTitle').textContent=copy.title;
+    riftTitleEl.textContent=copy.title;
     riftModal.hidden=false;
   }
 
@@ -522,24 +526,19 @@
     } else {
       lastSolvableSnapshot=null;
     }
-    if(data.riftState&&data.riftState.active){
-      riftState.active=true;
-      riftState.sequenceRunning=false;
-      riftState.nodes=(data.riftState.nodes||[]).slice(0,3);
-      riftState.hasTriggered=!!data.riftState.hasTriggered;
-      riftState.cooldownUntil=Number(data.riftState.cooldownUntil)||0;
-      riftState.copyKey=data.riftState.copyKey||'pattern';
+    const savedRiftState=data.riftState||{};
+    const isRiftActive=!!savedRiftState.active;
+    riftState={
+      active:isRiftActive,
+      sequenceRunning:false,
+      nodes:isRiftActive?(savedRiftState.nodes||[]).slice(0,3):[],
+      hasTriggered:!!savedRiftState.hasTriggered,
+      cooldownUntil:Number(savedRiftState.cooldownUntil)||0,
+      copyKey:savedRiftState.copyKey||'pattern'
+    };
+    if(isRiftActive){
       boardShellEl.classList.add('rift-active');
       statusEl.classList.add('rift-status');
-    } else {
-      riftState={
-        active:false,
-        sequenceRunning:false,
-        nodes:[],
-        hasTriggered:!!(data.riftState&&data.riftState.hasTriggered),
-        cooldownUntil:Number(data.riftState&&data.riftState.cooldownUntil)||0,
-        copyKey:(data.riftState&&data.riftState.copyKey)||'pattern'
-      };
     }
     render(); startTimer(); hideSplash();
     setStatus(riftState.active?'Rift node found. Tap the marked cell.':'Resumed saved game.');
@@ -852,12 +851,12 @@
   themeBtn.onclick=toggleTheme;
 
   riftBackdrop.onclick=()=>closeRift('You stepped back from the rift.');
-  document.getElementById('riftReturnBtn').onclick=()=>closeRift('You returned to the puzzle.');
-  document.getElementById('riftRestoreBtn').onclick=()=>{
+  riftReturnBtn.onclick=()=>closeRift('You returned to the puzzle.');
+  riftRestoreBtn.onclick=()=>{
     restoreLastSolvableState();
     closeRift('Restored to the last solvable state.');
   };
-  document.getElementById('riftFreshBtn').onclick=()=>{
+  riftFreshBtn.onclick=()=>{
     closeRift('Starting fresh.');
     newGame();
   };
