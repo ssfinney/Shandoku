@@ -182,8 +182,19 @@
       (Math.floor(selected.r/3)===Math.floor(r/3) && Math.floor(selected.c/3)===Math.floor(c/3));
   }
 
+  function getPersistedElapsedTime(data){
+    return data?.elapsed ?? data?.timeElapsed ?? data?.timer ?? data?.timeSeconds;
+  }
+
+  function normalizeElapsed(value){
+    const parsed=Number(value);
+    if(!Number.isFinite(parsed) || parsed<0) return 0;
+    return Math.floor(parsed);
+  }
+
   function formatTime(t){
-    return `${String(Math.floor(t/60)).padStart(2,'0')}:${String(t%60).padStart(2,'0')}`;
+    const normalized=normalizeElapsed(t);
+    return `${String(Math.floor(normalized/60)).padStart(2,'0')}:${String(normalized%60).padStart(2,'0')}`;
   }
 
   // ── Notes ────────────────────────────────────────────────────────────────
@@ -566,7 +577,7 @@
     startingGrid=data.startingGrid||data.grid.map(row=>row.slice());
     notes=data.notes.map(row=>row.map(arr=>new Set(arr)));
     selected=data.selected;
-    elapsed=data.elapsed||0;
+    elapsed=normalizeElapsed(getPersistedElapsedTime(data));
     notesMode=!!data.notesMode;
     autoCleanup=data.autoCleanup!==false;
     difficultyEl.value=data.difficulty||'medium';
@@ -946,7 +957,7 @@
       try{
         const saved=JSON.parse(raw);
         const modal=document.getElementById('resumeModal');
-        timeStat.textContent=formatTime(Number(saved.elapsed) || 0);
+        timeStat.textContent=formatTime(getPersistedElapsedTime(saved));
         modal.hidden=false;
         document.getElementById('resumeYesBtn').onclick=()=>{ modal.hidden=true; applyLoadedData(saved); };
         document.getElementById('resumeNoBtn').onclick=()=>{ modal.hidden=true; newGame(); };
