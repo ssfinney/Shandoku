@@ -182,6 +182,10 @@
       (Math.floor(selected.r/3)===Math.floor(r/3) && Math.floor(selected.c/3)===Math.floor(c/3));
   }
 
+  function getPersistedElapsedTime(data){
+    return data?.elapsed ?? data?.timeElapsed ?? data?.timer ?? data?.timeSeconds;
+  }
+
   function normalizeElapsed(value){
     const parsed=Number(value);
     if(!Number.isFinite(parsed) || parsed<0) return 0;
@@ -573,7 +577,7 @@
     startingGrid=data.startingGrid||data.grid.map(row=>row.slice());
     notes=data.notes.map(row=>row.map(arr=>new Set(arr)));
     selected=data.selected;
-    elapsed=normalizeElapsed(data.elapsed ?? data.timeElapsed ?? data.timer ?? data.timeSeconds);
+    elapsed=normalizeElapsed(getPersistedElapsedTime(data));
     notesMode=!!data.notesMode;
     autoCleanup=data.autoCleanup!==false;
     difficultyEl.value=data.difficulty||'medium';
@@ -953,7 +957,7 @@
       try{
         const saved=JSON.parse(raw);
         const modal=document.getElementById('resumeModal');
-        timeStat.textContent=formatTime(saved.elapsed ?? saved.timeElapsed ?? saved.timer ?? saved.timeSeconds);
+        timeStat.textContent=formatTime(getPersistedElapsedTime(saved));
         modal.hidden=false;
         document.getElementById('resumeYesBtn').onclick=()=>{ modal.hidden=true; applyLoadedData(saved); };
         document.getElementById('resumeNoBtn').onclick=()=>{ modal.hidden=true; newGame(); };
