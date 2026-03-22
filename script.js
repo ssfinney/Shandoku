@@ -604,7 +604,7 @@
       try{
         const saved=JSON.parse(raw);
         const modal=document.getElementById('resumeModal');
-        timeStat.textContent=formatTime(saved.elapsed||0);
+        timeStat.textContent=formatTime(Number(saved.elapsed) || 0);
         modal.hidden=false;
         document.getElementById('resumeYesBtn').onclick=()=>{ modal.hidden=true; applyLoadedData(saved); };
         document.getElementById('resumeNoBtn').onclick=()=>{ modal.hidden=true; newGame(); };
