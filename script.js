@@ -8,6 +8,7 @@
   const RIFT_STATUS_DELAY_MS = 950;
   const RIFT_STATUS_DELAY_REDUCED_MOTION_MS = 500;
   const RIFT_EVALUATE_DEBOUNCE_MS = 140;
+  const RIFT_NON_CONFLICT_CHECK_INTERVAL = 5;
 
   const boardEl = document.getElementById('board');
   const statusEl = document.getElementById('status');
@@ -45,6 +46,7 @@
   let statusSequenceId = 0;
   let interactionLocked = false;
   let riftEvalTimer = null;
+  let movesSinceSolvabilityCheck = 0;
   let riftState = {
     active:false,
     sequenceRunning:false,
@@ -296,6 +298,7 @@
     riftState.active=false;
     riftState.sequenceRunning=false;
     riftState.nodes=[];
+    movesSinceSolvabilityCheck=0;
     boardShellEl.classList.remove('rift-active','rift-glitch');
     statusEl.classList.remove('rift-status');
     riftModal.hidden=true;
@@ -362,10 +365,19 @@
     saveGame();
   }
 
-  function evaluateRiftTrigger(origin='system'){
+  function evaluateRiftTrigger(origin='system', options={}){
     if(origin!=='player-move') return;
     if(riftState.active||riftState.sequenceRunning) return;
     if(Date.now()<riftState.cooldownUntil) return;
+    if(!options.force){
+      if(options.conflictIntroduced){
+        movesSinceSolvabilityCheck=0;
+      } else {
+        movesSinceSolvabilityCheck++;
+        if(movesSinceSolvabilityCheck<RIFT_NON_CONFLICT_CHECK_INTERVAL) return;
+        movesSinceSolvabilityCheck=0;
+      }
+    }
     const solvable=hasAnySolution(grid);
     if(solvable){
       boardWasSolvable=true;
@@ -378,11 +390,11 @@
     }
   }
 
-  function scheduleRiftEvaluation(origin='player-move'){
+  function scheduleRiftEvaluation(origin='player-move', options={}){
     if(riftEvalTimer) clearTimeout(riftEvalTimer);
     riftEvalTimer=setTimeout(()=>{
       riftEvalTimer=null;
-      evaluateRiftTrigger(origin);
+      evaluateRiftTrigger(origin, options);
     },RIFT_EVALUATE_DEBOUNCE_MS);
   }
 
@@ -663,6 +675,7 @@
     boardShellEl.classList.remove('victory-glow');
     clearRiftVisualState();
     riftState={active:false,sequenceRunning:false,nodes:[],hasTriggered:false,cooldownUntil:0,copyKey:'pattern'};
+    movesSinceSolvabilityCheck=0;
     captureLastSolvableSnapshot();
     render(); startTimer(); saveGame(); hideSplash();
     setStatus(`New ${difficultyEl.value} Shandoku game loaded.`);
@@ -683,8 +696,9 @@
     grid[r][c]=n;
     notes[r][c].clear();
     autoCleanNotesAround(r,c,n);
+    const introducedConflict=hasConflict(r,c);
     render(); saveGame();
-    if(hasConflict(r,c)){
+    if(introducedConflict){
       vibrate([10,50,10]);
       const cellEl=boardEl.querySelector(`[data-r="${r}"][data-c="${c}"]`);
       if(cellEl){ cellEl.classList.add('error-shake'); setTimeout(()=>cellEl.classList.remove('error-shake'),400); }
@@ -692,7 +706,7 @@
       vibrate(10);
     }
     if(isSolved()){ setStatus('Solved. Nice work.'); celebrate(); }
-    scheduleRiftEvaluation('player-move');
+    scheduleRiftEvaluation('player-move',{conflictIntroduced:introducedConflict});
   }
 
   function clearSelected(){
@@ -704,7 +718,7 @@
     grid[r][c]=0; notes[r][c].clear();
     render(); saveGame();
     setStatus('Cell cleared.');
-    scheduleRiftEvaluation('player-move');
+    scheduleRiftEvaluation('player-move',{conflictIntroduced:false});
   }
 
   function jumpToNextEmpty(){
