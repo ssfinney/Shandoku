@@ -278,6 +278,7 @@
   }
 
   function clearRiftVisualState(){
+    statusSequenceId++;
     riftState.active=false;
     riftState.sequenceRunning=false;
     riftState.nodes=[];
@@ -636,8 +637,8 @@
     boardShellEl.classList.remove('victory-glow');
     clearRiftVisualState();
     riftState={active:false,sequenceRunning:false,nodes:[],hasTriggered:false,cooldownUntil:0,copyKey:'pattern'};
-    render(); startTimer(); saveGame(); hideSplash();
     captureLastSolvableSnapshot();
+    render(); startTimer(); saveGame(); hideSplash();
     setStatus(`New ${difficultyEl.value} Shandoku game loaded.`);
   }
 
