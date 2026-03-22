@@ -292,6 +292,11 @@
     return false;
   }
 
+  function markCurrentStateAsSolvable(){
+    lastSolvableSnapshot=snapshotCurrentState();
+    boardWasSolvable=true;
+  }
+
   function clearRiftVisualState(){
     statusSequenceId++;
     if(riftEvalTimer){ clearTimeout(riftEvalTimer); riftEvalTimer=null; }
@@ -380,8 +385,7 @@
     }
     const solvable=hasAnySolution(grid);
     if(solvable){
-      boardWasSolvable=true;
-      captureLastSolvableSnapshot();
+      markCurrentStateAsSolvable();
       return;
     }
     if(boardWasSolvable){
