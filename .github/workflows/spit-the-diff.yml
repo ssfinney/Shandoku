@@ -1,0 +1,20 @@
+name: spit-the-diff
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+
+jobs:
+  spit-the-diff:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate PR summary
+        uses: ssfinney/spit-the-diff@v1
+        with:
+          format: haiku
+          openai_api_key: ${{ secrets.OPENAI_API_KEY }}
