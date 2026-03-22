@@ -23,6 +23,8 @@
   --safe-top:env(safe-area-inset-top, 0px);
   --safe-bottom:env(safe-area-inset-bottom, 0px);
   --shadow:rgba(0,0,0,.24);
+  --riftAccent:#a78bfa;
+  --riftGlow:rgba(167,139,250,.45);
 }
 
 body.light{
@@ -174,6 +176,7 @@ button:active,select:active{transform:scale(.985)}
   border-radius:18px;
   padding:10px;
   box-shadow:0 4px 12px var(--shadow) inset;
+  transition:filter .25s ease,transform .25s ease,box-shadow .25s ease;
 }
 .board{
   display:grid;
@@ -215,6 +218,19 @@ button:active,select:active{transform:scale(.985)}
 .cell.error{background:var(--error);color:var(--errorText);outline:2px solid #dc2626}
 .cell.error.selected{outline:3px solid #dc2626}
 .cell.okflash{background:var(--good)}
+.cell.rift-node{
+  outline:2px dashed var(--riftAccent);
+  box-shadow:0 0 0 2px rgba(255,255,255,.8) inset,0 0 18px var(--riftGlow);
+}
+.cell.rift-node::after{
+  content:'◈';
+  position:absolute;
+  right:2px;
+  bottom:1px;
+  font-size:.62rem;
+  color:#4c1d95;
+  text-shadow:0 0 4px rgba(255,255,255,.8);
+}
 
 .notes{
   position:absolute;
@@ -238,6 +254,10 @@ button:active,select:active{transform:scale(.985)}
   line-height:1.32;
   min-height:44px;
   font-size:.9rem;
+}
+.status.rift-status{
+  border:1px solid rgba(167,139,250,.45);
+  box-shadow:0 0 16px rgba(167,139,250,.16) inset;
 }
 
 /* ── Controls ────────────────────────────────────────────────────────────── */
@@ -344,6 +364,60 @@ button:active,select:active{transform:scale(.985)}
 .resume-msg{margin:0 0 20px;font-size:1rem;color:var(--text)}
 .resume-btns{display:flex;flex-direction:column;gap:10px}
 
+/* ── Rift mode ───────────────────────────────────────────────────────────── */
+.board-shell.rift-locked{pointer-events:none}
+.board-shell.rift-glitch{
+  animation:rift-glitch .52s cubic-bezier(.2,.8,.2,1);
+  filter:saturate(1.15) contrast(1.05);
+}
+.board-shell.rift-active{
+  box-shadow:0 0 0 1px rgba(167,139,250,.6),0 4px 12px var(--shadow) inset;
+}
+@keyframes rift-glitch{
+  0%{transform:translateX(0)}
+  20%{transform:translateX(-3px) skewX(-1deg)}
+  40%{transform:translateX(3px) skewX(1deg)}
+  60%{transform:translateY(1px)}
+  100%{transform:translateX(0)}
+}
+.rift-modal{
+  position:fixed;
+  inset:0;
+  z-index:10001;
+  display:flex;
+  align-items:flex-end;
+}
+.rift-modal[hidden]{display:none}
+.rift-backdrop{
+  position:absolute;
+  inset:0;
+  background:rgba(2,6,23,.58);
+}
+.rift-card{
+  position:relative;
+  width:100%;
+  background:var(--panel);
+  border-radius:22px 22px 0 0;
+  border-top:1px solid rgba(167,139,250,.42);
+  padding:18px 14px calc(16px + var(--safe-bottom));
+  box-shadow:0 -12px 30px rgba(0,0,0,.32);
+}
+.rift-kicker{
+  margin:0 0 4px;
+  font-size:.74rem;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  color:var(--riftAccent);
+  font-weight:700;
+}
+.rift-card h2{margin:0 0 8px;font-size:1.05rem}
+.rift-body{margin:0;color:var(--text);line-height:1.4}
+.rift-btns{
+  display:grid;
+  gap:8px;
+  margin-top:14px;
+}
+
 /* ── Splash screen ───────────────────────────────────────────────────────── */
 .splash{
   position:fixed;
@@ -406,6 +480,7 @@ button:active,select:active{transform:scale(.985)}
 
 @media(prefers-reduced-motion:reduce){
   .splash-title,.splash-oval,.splash-dots{animation:none}
+  .board-shell.rift-glitch{animation:none}
 }
 
 /* ── Error shake ─────────────────────────────────────────────────────────── */
