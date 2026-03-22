@@ -634,7 +634,7 @@
     selected=null; elapsed=0; history=[]; future=[];
     boardShellEl.classList.remove('victory-glow');
     clearRiftVisualState();
-    riftState={active:false,sequenceRunning:false,nodes:[],hasTriggered:false,cooldownUntil:0,copyKey:'pattern'};
+    riftState={...initialRiftState}; // Assuming initialRiftState is defined as a constant
     render(); startTimer(); saveGame(); hideSplash();
     captureLastSolvableSnapshot();
     setStatus(`New ${difficultyEl.value} Shandoku game loaded.`);
