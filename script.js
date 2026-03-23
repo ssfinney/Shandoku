@@ -9,6 +9,11 @@
   const RIFT_STATUS_DELAY_REDUCED_MOTION_MS = 500;
   const RIFT_EVALUATE_DEBOUNCE_MS = 140;
   const RIFT_NON_CONFLICT_CHECK_INTERVAL = 5;
+  const testParams = new URLSearchParams(window.location.search);
+  const isLocalHost = ['localhost','127.0.0.1','0.0.0.0'].includes(window.location.hostname);
+  const testHooksEnabled = testParams.get('testHooks') === '1' && isLocalHost;
+  const e2eModeEnabled = testParams.get('e2e') === '1' && (isLocalHost || navigator.webdriver);
+  const TEST_MODE = testHooksEnabled || e2eModeEnabled;
 
   const boardEl = document.getElementById('board');
   const statusEl = document.getElementById('status');
@@ -49,11 +54,16 @@
   let movesSinceSolvabilityCheck = 0;
   let riftState = {
     active:false,
-    sequenceRunning:false,
     nodes:[],
     hasTriggered:false,
     cooldownUntil:0,
     copyKey:'pattern'
+  };
+  let riftSequenceRunning = false;
+  let lastFocusedBeforeRiftModal = null;
+  const riftExtensionHooks = {
+    onTrigger:[],
+    onResolve:[]
   };
   const riftCopySets = {
     pattern:{
@@ -270,6 +280,17 @@
 
   function setStatus(msg){ statusEl.textContent=msg; }
 
+  function notifyRiftHook(name, payload){
+    const handlers = riftExtensionHooks[name] || [];
+    handlers.forEach(handler => {
+      try {
+        handler(payload);
+      } catch (error) {
+        console.error(`Rift extension hook "${name}" failed:`, error);
+      }
+    });
+  }
+
   function setInteractionLocked(locked){
     interactionLocked=locked;
     boardShellEl.classList.toggle('rift-locked',locked);
@@ -308,11 +329,44 @@
     boardWasSolvable=true;
   }
 
+  function serializeRiftState(){
+    return {
+      active:riftState.active,
+      nodes:riftState.nodes.slice(0,3),
+      hasTriggered:riftState.hasTriggered,
+      cooldownUntil:riftState.cooldownUntil,
+      copyKey:riftState.copyKey
+    };
+  }
+
+  function deserializeRiftState(savedRiftState={}){
+    const isRiftActive = !!savedRiftState.active;
+    return {
+      active:isRiftActive,
+      nodes:isRiftActive ? (savedRiftState.nodes||[]).slice(0,3) : [],
+      hasTriggered:!!savedRiftState.hasTriggered,
+      cooldownUntil:Number(savedRiftState.cooldownUntil)||0,
+      copyKey:savedRiftState.copyKey||'pattern'
+    };
+  }
+
+  function resetRiftState(){
+    riftState = { active:false, nodes:[], hasTriggered:false, cooldownUntil:0, copyKey:'pattern' };
+    riftSequenceRunning = false;
+  }
+
+  function applyPostMovePipeline({ origin='player-move', riftOptions={}, shouldEvaluateRift=true, shouldCaptureSolvable=false }={}){
+    render();
+    saveGame();
+    if(shouldCaptureSolvable) captureLastSolvableSnapshot();
+    if(shouldEvaluateRift) scheduleRiftEvaluation(origin, riftOptions);
+  }
+
   function clearRiftVisualState(){
     statusSequenceId++;
     if(riftEvalTimer){ clearTimeout(riftEvalTimer); riftEvalTimer=null; }
     riftState.active=false;
-    riftState.sequenceRunning=false;
+    riftSequenceRunning=false;
     riftState.nodes=[];
     movesSinceSolvabilityCheck=0;
     boardShellEl.classList.remove('rift-active','rift-glitch');
@@ -352,16 +406,19 @@
     const copy=riftCopySets[riftState.copyKey]||riftCopySets.pattern;
     riftBodyEl.textContent=copy.fragment;
     riftTitleEl.textContent=copy.title;
+    lastFocusedBeforeRiftModal = document.activeElement;
     riftModal.hidden=false;
+    riftReturnBtn.focus();
   }
 
   async function triggerRiftEvent(){
-    if(riftState.active || riftState.sequenceRunning) return;
-    riftState.sequenceRunning=true;
+    if(riftState.active || riftSequenceRunning) return;
+    riftSequenceRunning=true;
     riftState.hasTriggered=true;
     riftState.cooldownUntil=Date.now()+RIFT_COOLDOWN_MS;
     setInteractionLocked(true);
-    boardShellEl.classList.add('rift-active','rift-glitch');
+    boardShellEl.classList.add('rift-active');
+    if(!reducedMotion.matches) boardShellEl.classList.add('rift-glitch');
     statusEl.classList.add('rift-status');
     vibrate([15,55,15]);
     render();
@@ -369,37 +426,50 @@
     const complete=await runStatusSequence(copy.lines);
     boardShellEl.classList.remove('rift-glitch');
     if(!complete){
-      riftState.sequenceRunning=false;
+      riftSequenceRunning=false;
       return;
     }
     riftState.nodes=getRiftNodes();
     riftState.active=true;
-    riftState.sequenceRunning=false;
+    riftSequenceRunning=false;
     setInteractionLocked(false);
     render();
     setStatus('Rift node found. Tap the marked cell.');
     saveGame();
+    notifyRiftHook('onTrigger', { rift:serializeRiftState(), snapshot:snapshotCurrentState() });
   }
 
-  function evaluateRiftTrigger(origin='system', options={}){
-    if(origin!=='player-move') return;
-    if(riftState.active||riftState.sequenceRunning) return;
-    if(Date.now()<riftState.cooldownUntil) return;
+  function shouldEvaluateRift(origin='system', options={}){
+    if(origin!=='player-move') return false;
+    if(riftState.active||riftSequenceRunning) return false;
+    if(riftState.hasTriggered) return false;
+    if(Date.now()<riftState.cooldownUntil) return false;
+    // Explicit policy: evaluate immediately after conflict-introducing moves,
+    // otherwise only every N non-conflicting moves to reduce solver pressure.
     if(!options.force){
       if(options.conflictIntroduced){
         movesSinceSolvabilityCheck=0;
       } else {
         movesSinceSolvabilityCheck++;
-        if(movesSinceSolvabilityCheck<RIFT_NON_CONFLICT_CHECK_INTERVAL) return;
+        if(movesSinceSolvabilityCheck<RIFT_NON_CONFLICT_CHECK_INTERVAL) return false;
         movesSinceSolvabilityCheck=0;
       }
     }
-    const solvable=hasAnySolution(grid);
+    return true;
+  }
+
+  function shouldTriggerRiftFromSolvability(solvable){
     if(solvable){
       markCurrentStateAsSolvable();
-      return;
+      return false;
     }
-    if(boardWasSolvable){
+    return boardWasSolvable;
+  }
+
+  function evaluateRiftTrigger(origin='system', options={}){
+    if(!shouldEvaluateRift(origin, options)) return;
+    const solvable=hasAnySolution(grid);
+    if(shouldTriggerRiftFromSolvability(solvable)){
       boardWasSolvable=false;
       triggerRiftEvent();
     }
@@ -414,17 +484,9 @@
   }
 
   function restoreRiftStateFromSave(data){
-    const savedRiftState=data.riftState||{};
-    const isRiftActive=!!savedRiftState.active;
-    riftState={
-      active:isRiftActive,
-      sequenceRunning:false,
-      nodes:isRiftActive?(savedRiftState.nodes||[]).slice(0,3):[],
-      hasTriggered:!!savedRiftState.hasTriggered,
-      cooldownUntil:Number(savedRiftState.cooldownUntil)||0,
-      copyKey:savedRiftState.copyKey||'pattern'
-    };
-    if(isRiftActive){
+    riftState=deserializeRiftState(data.riftState||{});
+    riftSequenceRunning=false;
+    if(riftState.active){
       boardShellEl.classList.add('rift-active');
       statusEl.classList.add('rift-status');
     }
@@ -465,7 +527,7 @@
   }
 
   function updateStatus(){
-    if(riftState.sequenceRunning) return;
+    if(riftSequenceRunning) return;
     if(riftState.active){ setStatus('Rift node found. Tap the marked cell.'); return; }
     if(!selected){ setStatus('Tap a cell to select it, then tap a number.'); return; }
     const {r,c}=selected;
@@ -555,13 +617,7 @@
       selected, elapsed, notesMode, autoCleanup,
       difficulty:difficultyEl.value,
       lastSolvableSnapshot:encodedLastSolvable,
-      riftState:{
-        active:riftState.active,
-        nodes:riftState.nodes,
-        hasTriggered:riftState.hasTriggered,
-        cooldownUntil:riftState.cooldownUntil,
-        copyKey:riftState.copyKey
-      }
+      riftState:serializeRiftState()
     };
     try{
       localStorage.setItem(STORAGE_KEY,JSON.stringify(payload));
@@ -689,7 +745,7 @@
     selected=null; elapsed=0; history=[]; future=[];
     boardShellEl.classList.remove('victory-glow');
     clearRiftVisualState();
-    riftState={active:false,sequenceRunning:false,nodes:[],hasTriggered:false,cooldownUntil:0,copyKey:'pattern'};
+    resetRiftState();
     movesSinceSolvabilityCheck=0;
     captureLastSolvableSnapshot();
     render(); startTimer(); saveGame(); hideSplash();
@@ -706,13 +762,13 @@
       if(grid[r][c]!==0){ history.pop(); setStatus('Clear the number first before adding notes.'); return; }
       if(notes[r][c].has(n)) notes[r][c].delete(n); else notes[r][c].add(n);
       vibrate(10);
-      render(); saveGame(); return;
+      applyPostMovePipeline({ shouldEvaluateRift:false }); return;
     }
     grid[r][c]=n;
     notes[r][c].clear();
     autoCleanNotesAround(r,c,n);
     const introducedConflict=hasConflict(r,c);
-    render(); saveGame();
+    applyPostMovePipeline({ riftOptions:{conflictIntroduced:introducedConflict} });
     if(introducedConflict){
       vibrate([10,50,10]);
       const cellEl=boardEl.querySelector(`[data-r="${r}"][data-c="${c}"]`);
@@ -721,7 +777,6 @@
       vibrate(10);
     }
     if(isSolved()){ setStatus('Solved. Nice work.'); celebrate(); }
-    scheduleRiftEvaluation('player-move',{conflictIntroduced:introducedConflict});
   }
 
   function clearSelected(){
@@ -731,9 +786,8 @@
     if(startingGrid[r][c]!==0){ setStatus('Starting number — this cell cannot be changed.'); return; }
     pushHistory();
     grid[r][c]=0; notes[r][c].clear();
-    render(); saveGame();
+    applyPostMovePipeline({ riftOptions:{conflictIntroduced:false} });
     setStatus('Cell cleared.');
-    scheduleRiftEvaluation('player-move',{conflictIntroduced:false});
   }
 
   function jumpToNextEmpty(){
@@ -804,10 +858,9 @@
     const ok=solve();
     grid=b;
     notes=Array.from({length:GRID_SIZE},()=>Array.from({length:GRID_SIZE},()=>new Set()));
-    render(); saveGame();
+    applyPostMovePipeline({ shouldEvaluateRift:false, shouldCaptureSolvable:true });
     if(ok) setStatus('Solved.');
     else setStatus('Could not solve — fix the conflicts first.');
-    captureLastSolvableSnapshot();
   }
 
   function moveSelection(dr, dc){
@@ -831,6 +884,24 @@
     clearRiftVisualState();
     setStatus(returnMessage);
     saveGame();
+    notifyRiftHook('onResolve', { message:returnMessage, rift:serializeRiftState(), snapshot:snapshotCurrentState() });
+    if(lastFocusedBeforeRiftModal && typeof lastFocusedBeforeRiftModal.focus === 'function'){
+      lastFocusedBeforeRiftModal.focus();
+    }
+    lastFocusedBeforeRiftModal = null;
+  }
+
+  function registerRiftExtension(extension={}){
+    const dispose = [];
+    Object.keys(riftExtensionHooks).forEach(hookName => {
+      const handler = extension[hookName];
+      if(typeof handler !== 'function') return;
+      riftExtensionHooks[hookName].push(handler);
+      dispose.push(()=>{
+        riftExtensionHooks[hookName] = riftExtensionHooks[hookName].filter(fn=>fn!==handler);
+      });
+    });
+    return () => dispose.forEach(fn=>fn());
   }
 
   // ── Build digit pad ───────────────────────────────────────────────────────
@@ -947,8 +1018,71 @@
 
   // ── Boot ──────────────────────────────────────────────────────────────────
 
+  function exposeTestApi(){
+    window.__shandokuTest = {
+      getStateSummary(){
+        return {
+          selected:selected?{...selected}:null,
+          elapsed,
+          notesMode,
+          autoCleanup,
+          errors:countErrors(),
+          filled:countFilled(),
+          boardWasSolvable,
+          hasLastSolvableSnapshot:!!lastSolvableSnapshot
+        };
+      },
+      setBoardState(nextState={}){
+        if(!nextState.grid || !Array.isArray(nextState.grid) || nextState.grid.length!==GRID_SIZE){
+          throw new Error('setBoardState requires a 9x9 grid.');
+        }
+        const nextGrid = nextState.grid.map(row => row.slice());
+        const nextStartingGrid = nextState.startingGrid ? nextState.startingGrid.map(row => row.slice()) : nextGrid.map(row => row.slice());
+        const nextNotes = nextState.notes
+          ? nextState.notes.map(row => row.map(arr => new Set(Array.isArray(arr) ? arr : [])))
+          : Array.from({length:GRID_SIZE},()=>Array.from({length:GRID_SIZE},()=>new Set()));
+        grid=nextGrid;
+        startingGrid=nextStartingGrid;
+        notes=nextNotes;
+        selected=nextState.selected ? { ...nextState.selected } : null;
+        history=[];
+        future=[];
+        clearRiftVisualState();
+        resetRiftState();
+        boardWasSolvable=hasAnySolution(grid);
+        if(boardWasSolvable) captureLastSolvableSnapshot();
+        render();
+        saveGame();
+      },
+      forceEvaluateRift(){
+        evaluateRiftTrigger('player-move',{ force:true, conflictIntroduced:true });
+      },
+      async forceRift(){
+        if(riftState.active || riftSequenceRunning) return;
+        await triggerRiftEvent();
+      },
+      getRiftState(){
+        return {
+          ...serializeRiftState(),
+          sequenceRunning:riftSequenceRunning,
+          interactionLocked
+        };
+      },
+      restoreLastSolvable(){
+        restoreLastSolvableState();
+      },
+      clearSave(){
+        localStorage.removeItem(STORAGE_KEY);
+      }
+    };
+    window.__shandokuInternal = {
+      registerRiftExtension
+    };
+  }
+
   applyTheme(localStorage.getItem(THEME_KEY)||'dark');
   buildDigitPad();
+  if(TEST_MODE) exposeTestApi();
 
   // Defer game init until after the first paint so the splash animates.
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
