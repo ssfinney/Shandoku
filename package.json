@@ -5,6 +5,8 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "test": "playwright test",
+    "test:e2e": "playwright test",
     "lint": "eslint script.js sw.js",
     "lint:fix": "eslint --fix script.js sw.js"
   },
