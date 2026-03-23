@@ -6,7 +6,6 @@
   "type": "module",
   "scripts": {
     "test": "playwright test",
-    "test:e2e": "playwright test",
     "lint": "eslint script.js sw.js",
     "lint:fix": "eslint --fix script.js sw.js",
     "test:serve": "http-server . -p 4173 -c-1 --silent",

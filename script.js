@@ -11,8 +11,9 @@
   const RIFT_NON_CONFLICT_CHECK_INTERVAL = 5;
   const testParams = new URLSearchParams(window.location.search);
   const isLocalHost = ['localhost','127.0.0.1','0.0.0.0'].includes(window.location.hostname);
-  const TEST_MODE = (testParams.get('testHooks') === '1' && isLocalHost)
-    || (testParams.get('e2e') === '1' && (isLocalHost || navigator.webdriver === true));
+  const testHooksEnabled = testParams.get('testHooks') === '1' && isLocalHost;
+  const e2eModeEnabled = testParams.get('e2e') === '1' && (isLocalHost || navigator.webdriver);
+  const TEST_MODE = testHooksEnabled || e2eModeEnabled;
   const boardEl = document.getElementById('board');
   const statusEl = document.getElementById('status');
   const difficultyEl = document.getElementById('difficulty');
@@ -891,7 +892,7 @@
 
   function registerRiftExtension(extension={}){
     const dispose = [];
-    ['onTrigger','onResolve'].forEach(hookName => {
+    Object.keys(riftExtensionHooks).forEach(hookName => {
       const handler = extension[hookName];
       if(typeof handler !== 'function') return;
       riftExtensionHooks[hookName].push(handler);
@@ -1138,6 +1139,10 @@
       },
       forceEvaluateRift(){
         evaluateRiftTrigger('player-move',{ force:true, conflictIntroduced:true });
+      },
+      async forceRift(){
+        if(riftState.active || riftSequenceRunning) return;
+        await triggerRiftEvent();
       },
       getRiftState(){
         return {
