@@ -5,7 +5,7 @@ test.describe('Shandoku smoke + core interactions', () => {
   test('app loads and board renders 81 cells', async ({ page }) => {
     await openFreshGame(page);
 
-    await expect(page.locator('h1')).toContainText('Shandoku');
+    await expect(page.locator('.top-bar h1')).toContainText('Shandoku');
     await expect(page.locator('#status')).toContainText('Tap a cell');
   });
 
