@@ -9,6 +9,7 @@
   const RIFT_STATUS_DELAY_REDUCED_MOTION_MS = 500;
   const RIFT_EVALUATE_DEBOUNCE_MS = 140;
   const RIFT_NON_CONFLICT_CHECK_INTERVAL = 5;
+  const RIFT_MAX_NODES = 3;
   const testParams = new URLSearchParams(window.location.search);
   const isLocalHost = ['localhost','127.0.0.1','0.0.0.0'].includes(window.location.hostname);
   const testHooksEnabled = testParams.get('testHooks') === '1' && isLocalHost;
@@ -332,7 +333,7 @@
   function serializeRiftState(){
     return {
       active:riftState.active,
-      nodes:riftState.nodes.slice(0,3),
+      nodes:riftState.nodes.slice(0,RIFT_MAX_NODES),
       hasTriggered:riftState.hasTriggered,
       cooldownUntil:riftState.cooldownUntil,
       copyKey:riftState.copyKey
@@ -343,7 +344,7 @@
     const isRiftActive = !!savedRiftState.active;
     return {
       active:isRiftActive,
-      nodes:isRiftActive ? (savedRiftState.nodes||[]).slice(0,3) : [],
+      nodes:isRiftActive ? (savedRiftState.nodes||[]).slice(0,RIFT_MAX_NODES) : [],
       hasTriggered:!!savedRiftState.hasTriggered,
       cooldownUntil:Number(savedRiftState.cooldownUntil)||0,
       copyKey:savedRiftState.copyKey||'pattern'
@@ -382,7 +383,7 @@
         if(hasConflict(r,c)) conflicted.push({r,c});
       }
     }
-    if(conflicted.length) return conflicted.slice(0,3);
+    if(conflicted.length) return conflicted.slice(0,RIFT_MAX_NODES);
     for(let r=0;r<GRID_SIZE;r++){
       for(let c=0;c<GRID_SIZE;c++){
         if(grid[r][c]===0) return [{r,c}];
@@ -1033,7 +1034,10 @@
         };
       },
       setBoardState(nextState={}){
-        if(!nextState.grid || !Array.isArray(nextState.grid) || nextState.grid.length!==GRID_SIZE){
+        const hasValidGridShape = Array.isArray(nextState.grid)
+          && nextState.grid.length===GRID_SIZE
+          && nextState.grid.every(row=>Array.isArray(row) && row.length===GRID_SIZE);
+        if(!hasValidGridShape){
           throw new Error('setBoardState requires a 9x9 grid.');
         }
         const nextGrid = nextState.grid.map(row => row.slice());
