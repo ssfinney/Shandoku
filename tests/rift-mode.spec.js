@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 async function dismissResumeModal(page) {
   const newGameBtn = page.locator('#resumeNoBtn');
-  if (await newGameBtn.isVisible().catch(() => false)) {
+  if (await newGameBtn.isVisible({ timeout: 500 })) {
     await newGameBtn.click();
   }
 }
