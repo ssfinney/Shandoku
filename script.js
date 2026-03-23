@@ -9,6 +9,8 @@
   const RIFT_STATUS_DELAY_REDUCED_MOTION_MS = 500;
   const RIFT_EVALUATE_DEBOUNCE_MS = 140;
   const RIFT_NON_CONFLICT_CHECK_INTERVAL = 5;
+  const TEST_MODE = ['localhost','127.0.0.1'].includes(window.location.hostname)
+    || new URLSearchParams(window.location.search).get('testHooks') === '1';
 
   const boardEl = document.getElementById('board');
   const statusEl = document.getElementById('status');
@@ -1013,10 +1015,7 @@
 
   // ── Boot ──────────────────────────────────────────────────────────────────
 
-  function installTestHooks(){
-    const isLocalHost = ['localhost','127.0.0.1'].includes(window.location.hostname);
-    const explicitFlag = new URLSearchParams(window.location.search).get('testHooks') === '1';
-    if(!isLocalHost && !explicitFlag) return;
+  function exposeTestApi(){
     window.__shandokuTest = {
       getStateSummary(){
         return {
@@ -1076,7 +1075,7 @@
 
   applyTheme(localStorage.getItem(THEME_KEY)||'dark');
   buildDigitPad();
-  installTestHooks();
+  if(TEST_MODE) exposeTestApi();
 
   // Defer game init until after the first paint so the splash animates.
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
