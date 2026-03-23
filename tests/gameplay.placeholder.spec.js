@@ -1,11 +1,9 @@
 import { test, expect } from '@playwright/test';
+import { openFreshGame } from './test-utils.js';
 
 test.describe('Gameplay regression placeholders', () => {
   test('deterministic Rift trigger is visible', async ({ page }) => {
-    await page.addInitScript(() => localStorage.clear());
-    await page.goto('/?e2e=1');
-
-    await expect(page.locator('#board .cell')).toHaveCount(81);
+    await openFreshGame(page);
     await page.evaluate(() => {
       window.__shandokuTest.setBoardState({
         grid: Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => 0)),
@@ -20,9 +18,7 @@ test.describe('Gameplay regression placeholders', () => {
   });
 
   test('restore last solvable state from Rift modal', async ({ page }) => {
-    await page.addInitScript(() => localStorage.clear());
-    await page.goto('/?e2e=1');
-    await expect(page.locator('#board .cell')).toHaveCount(81);
+    await openFreshGame(page);
 
     await page.evaluate(() => {
       const blank = Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => 0));

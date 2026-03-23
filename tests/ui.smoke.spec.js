@@ -1,13 +1,5 @@
 import { test, expect } from '@playwright/test';
-
-async function openFreshGame(page) {
-  await page.addInitScript(() => {
-    localStorage.clear();
-    sessionStorage.clear();
-  });
-  await page.goto('/?e2e=1');
-  await expect(page.locator('#board .cell')).toHaveCount(81);
-}
+import { openFreshGame } from './test-utils.js';
 
 test.describe('Shandoku smoke + core interactions', () => {
   test('app loads and board renders 81 cells', async ({ page }) => {

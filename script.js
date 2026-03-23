@@ -9,7 +9,9 @@
   const RIFT_STATUS_DELAY_REDUCED_MOTION_MS = 500;
   const RIFT_EVALUATE_DEBOUNCE_MS = 140;
   const RIFT_NON_CONFLICT_CHECK_INTERVAL = 5;
-  const TEST_MODE = window.location.search.includes('e2e=1');
+  const testParams = new URLSearchParams(window.location.search);
+  const isLocalHost = ['localhost','127.0.0.1','0.0.0.0'].includes(window.location.hostname);
+  const TEST_MODE = testParams.get('e2e') === '1' && (isLocalHost || navigator.webdriver === true);
 
   const boardEl = document.getElementById('board');
   const statusEl = document.getElementById('status');
@@ -871,7 +873,7 @@
   }
 
   function exposeTestApi(){
-    window.__shandokuTest={
+    Object.defineProperty(window,'__shandokuTest',{value:{
       resetStorage(){
         localStorage.removeItem(STORAGE_KEY);
       },
@@ -915,7 +917,7 @@
         setStatus('Rift node found. Tap the marked cell.');
         saveGame();
       }
-    };
+    }, configurable:false, writable:false});
   }
 
   // ── Build digit pad ───────────────────────────────────────────────────────
