@@ -434,7 +434,7 @@
     notifyRiftHook('onTrigger', { rift:serializeRiftState(), snapshot:snapshotCurrentState() });
   }
 
-  function shouldTriggerRift(origin='system', options={}, solvable){
+  function shouldEvaluateRift(origin='system', options={}){
     if(origin!=='player-move') return false;
     if(riftState.active||riftSequenceRunning) return false;
     if(riftState.hasTriggered) return false;
@@ -450,6 +450,10 @@
         movesSinceSolvabilityCheck=0;
       }
     }
+    return true;
+  }
+
+  function shouldTriggerRiftFromSolvability(solvable){
     if(solvable){
       markCurrentStateAsSolvable();
       return false;
@@ -458,9 +462,9 @@
   }
 
   function evaluateRiftTrigger(origin='system', options={}){
-    if(origin!=='player-move') return;
+    if(!shouldEvaluateRift(origin, options)) return;
     const solvable=hasAnySolution(grid);
-    if(shouldTriggerRift(origin, options, solvable)){
+    if(shouldTriggerRiftFromSolvability(solvable)){
       boardWasSolvable=false;
       triggerRiftEvent();
     }
