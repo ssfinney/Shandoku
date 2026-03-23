@@ -278,7 +278,11 @@
   function notifyRiftHook(name, payload){
     const handlers = riftExtensionHooks[name] || [];
     handlers.forEach(handler => {
-      try { handler(payload); } catch { /* no-op */ }
+      try {
+        handler(payload);
+      } catch (error) {
+        console.error(`Rift extension hook "${name}" failed:`, error);
+      }
     });
   }
 
@@ -880,14 +884,14 @@
 
   function registerRiftExtension(extension={}){
     const dispose = [];
-    if(typeof extension.onTrigger === 'function'){
-      riftExtensionHooks.onTrigger.push(extension.onTrigger);
-      dispose.push(()=>{ riftExtensionHooks.onTrigger = riftExtensionHooks.onTrigger.filter(fn=>fn!==extension.onTrigger); });
-    }
-    if(typeof extension.onResolve === 'function'){
-      riftExtensionHooks.onResolve.push(extension.onResolve);
-      dispose.push(()=>{ riftExtensionHooks.onResolve = riftExtensionHooks.onResolve.filter(fn=>fn!==extension.onResolve); });
-    }
+    ['onTrigger','onResolve'].forEach(hookName => {
+      const handler = extension[hookName];
+      if(typeof handler !== 'function') return;
+      riftExtensionHooks[hookName].push(handler);
+      dispose.push(()=>{
+        riftExtensionHooks[hookName] = riftExtensionHooks[hookName].filter(fn=>fn!==handler);
+      });
+    });
     return () => dispose.forEach(fn=>fn());
   }
 
