@@ -9,8 +9,10 @@
   const RIFT_STATUS_DELAY_REDUCED_MOTION_MS = 500;
   const RIFT_EVALUATE_DEBOUNCE_MS = 140;
   const RIFT_NON_CONFLICT_CHECK_INTERVAL = 5;
-  const TEST_MODE = ['localhost','127.0.0.1'].includes(window.location.hostname)
-    || new URLSearchParams(window.location.search).get('testHooks') === '1';
+  const testParams = new URLSearchParams(window.location.search);
+  const isLocalHost = ['localhost','127.0.0.1','0.0.0.0'].includes(window.location.hostname);
+  const TEST_MODE = (testParams.get('testHooks') === '1' && isLocalHost)
+    || (testParams.get('e2e') === '1' && (isLocalHost || navigator.webdriver === true));
 
   const boardEl = document.getElementById('board');
   const statusEl = document.getElementById('status');
