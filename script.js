@@ -201,6 +201,17 @@
     return Math.floor(parsed);
   }
 
+  function normalizeBoolean(value, fallback=false){
+    if(typeof value === 'boolean') return value;
+    if(typeof value === 'string'){
+      const normalized=value.trim().toLowerCase();
+      if(normalized==='true') return true;
+      if(normalized==='false') return false;
+    }
+    if(value==null) return fallback;
+    return Boolean(value);
+  }
+
   function formatTime(t){
     const normalized=normalizeElapsed(t);
     return `${String(Math.floor(normalized/60)).padStart(2,'0')}:${String(normalized%60).padStart(2,'0')}`;
@@ -633,8 +644,8 @@
     notes=data.notes.map(row=>row.map(arr=>new Set(arr)));
     selected=data.selected;
     elapsed=normalizeElapsed(getPersistedElapsedTime(data));
-    notesMode=!!data.notesMode;
-    autoCleanup=data.autoCleanup!==false;
+    notesMode=normalizeBoolean(data.notesMode,false);
+    autoCleanup=normalizeBoolean(data.autoCleanup,true);
     difficultyEl.value=data.difficulty||'medium';
     history=[]; future=[];
     boardShellEl.classList.remove('victory-glow');
@@ -741,7 +752,7 @@
     startingGrid=cloneGrid(grid);
     notes=Array.from({length:GRID_SIZE},()=>Array.from({length:GRID_SIZE},()=>new Set()));
     fillNotesAll();
-    selected=null; elapsed=0; history=[]; future=[];
+    selected=null; elapsed=0; notesMode=false; autoCleanup=true; history=[]; future=[];
     boardShellEl.classList.remove('victory-glow');
     clearRiftVisualState();
     resetRiftState();
@@ -927,8 +938,8 @@
       ?{r:Math.max(0,Math.min(8,payload.selected.r)),c:Math.max(0,Math.min(8,payload.selected.c))}
       :null;
     elapsed=normalizeElapsed(payload.elapsed);
-    notesMode=!!payload.notesMode;
-    autoCleanup=payload.autoCleanup!==false;
+    notesMode=normalizeBoolean(payload.notesMode,false);
+    autoCleanup=normalizeBoolean(payload.autoCleanup,true);
     history=[]; future=[];
     boardShellEl.classList.remove('victory-glow');
     clearRiftVisualState();
@@ -1046,7 +1057,11 @@
   document.getElementById('undoBtn').onclick=undo;
   document.getElementById('redoBtn').onclick=redo;
 
-  notesModeBtn.onclick=()=>{ notesMode=!notesMode; render(); saveGame(); };
+  notesModeBtn.onclick=()=>{
+    notesMode=!normalizeBoolean(notesMode,false);
+    render();
+    saveGame();
+  };
   autoNotesBtn.onclick=()=>{ autoCleanup=!autoCleanup; render(); saveGame(); };
 
   document.getElementById('fillNotesBtn').onclick=()=>{ fillNotesAll(); render(); saveGame(); setStatus('Filled notes for all empty cells.'); };
